@@ -4,37 +4,22 @@
   <subtitle><![CDATA[软件架构、项目管理、互联网、Java]]></subtitle>
   <link href="/atom.xml" rel="self"/>
   <link href="http://zhaoyang.me/"/>
-  <updated>2015-10-28T02:49:22.000Z</updated>
+  <updated>2015-12-10T09:36:14.000Z</updated>
   <id>http://zhaoyang.me/</id>
   
   <author>
-    <name><![CDATA[UncleZhao（末底改）]]></name>
+    <name><![CDATA[末底改]]></name>
     
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
-    <title><![CDATA[读SpringFramework4.2文档]]></title>
-    <link href="http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/"/>
-    <id>http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/</id>
-    <published>2015-10-28T02:45:16.000Z</published>
-    <updated>2015-10-28T02:49:22.000Z</updated>
-    <content type="html"></content>
-    <summary type="html">
-    
-    </summary>
-    
-      <category term="spring" scheme="http://zhaoyang.me/tags/spring/"/>
-    
-  </entry>
-  
-  <entry>
     <title><![CDATA[Hello World]]></title>
-    <link href="http://zhaoyang.me/2015/10/27/hello-world/"/>
-    <id>http://zhaoyang.me/2015/10/27/hello-world/</id>
-    <published>2015-10-27T08:24:33.000Z</published>
-    <updated>2015-10-27T08:24:33.000Z</updated>
+    <link href="http://zhaoyang.me/2015/12/10/hello-world/"/>
+    <id>http://zhaoyang.me/2015/12/10/hello-world/</id>
+    <published>2015-12-10T09:36:14.000Z</published>
+    <updated>2015-12-10T09:36:14.000Z</updated>
     <content type="html"><![CDATA[<p>Welcome to <a href="http://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="http://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="http://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
 <h2 id="Quick_Start">Quick Start</h2><h3 id="Create_a_new_post">Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
 <p>More info: <a href="http://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
@@ -48,6 +33,23 @@
     <summary type="html">
     <![CDATA[<p>Welcome to <a href="http://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="http://hexo.io]]>
     </summary>
+    
+  </entry>
+  
+  <entry>
+    <title><![CDATA[读SpringFramework4.2文档]]></title>
+    <link href="http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/"/>
+    <id>http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/</id>
+    <published>2015-10-28T02:45:16.000Z</published>
+    <updated>2015-12-10T09:36:41.000Z</updated>
+    <content type="html"></content>
+    <summary type="html">
+    
+    </summary>
+    
+      <category term="spring" scheme="http://zhaoyang.me/tags/spring/"/>
+    
+      <category term="spring" scheme="http://zhaoyang.me/categories/spring/"/>
     
   </entry>
   

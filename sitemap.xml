@@ -2,13 +2,28 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/</loc>
-    <lastmod>2015-10-28T02:49:22.000Z</lastmod>
+    <loc>http://zhaoyang.me/about/index.html</loc>
+    <lastmod>2015-12-10T09:44:57.000Z</lastmod>
   </url>
   
   <url>
-    <loc>http://zhaoyang.me/2015/10/27/hello-world/</loc>
-    <lastmod>2015-10-27T08:24:33.000Z</lastmod>
+    <loc>http://zhaoyang.me/tags/index.html</loc>
+    <lastmod>2015-12-10T09:43:25.000Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://zhaoyang.me/categories/index.html</loc>
+    <lastmod>2015-12-10T09:43:18.000Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://zhaoyang.me/2015/10/28/read-spring-framework-4.2-doc/</loc>
+    <lastmod>2015-12-10T09:36:41.000Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://zhaoyang.me/2015/12/10/hello-world/</loc>
+    <lastmod>2015-12-10T09:36:14.000Z</lastmod>
   </url>
   
 </urlset>
