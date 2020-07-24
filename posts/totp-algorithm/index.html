@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>动态密码TOTP | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="昨天碰到一个有意思的事情，做了一道题，然后提交的时候需要根据定义好的共享密钥的规则来……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/totp-algorithm/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-07-06T11:46:30+08:00",
+        "dateModified": "2020-07-23T10:23:39+08:00",
+        "url": "https://zhaoyang.me/posts/totp-algorithm/",
+        "headline": "动态密码TOTP",
+        "description": "昨天碰到一个有意思的事情，做了一道题，然后提交的时候需要根据定义好的共享密钥的规则来……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  2419 ,
+        "image": ["https://zhaoyang.me/img/15943726590019.jpg","https://zhaoyang.me/img/15943726823121.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="动态密码TOTP" />
+<meta property="og:description" content="昨天碰到一个有意思的事情，做了一道题，然后提交的时候需要根据定义好的共享密钥的规则来……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/totp-algorithm/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15943726590019.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-07-06T11:46:30&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-23T10:23:39&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">动态密码TOTP</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-07-06T11:46:30&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.7.6</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/protocol/" class="category-link">protocol</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>昨天碰到一个有意思的事情，做了一道题，然后提交的时候需要根据定义好的共享密钥的规则来生成一个<code>TOTP</code>动态密码，服务端会对不同的人提交的时候生成的动态密码做校验，于是就学习了一下<code>TOTP</code>算法，并基于<code>Golang</code>和<code>Java</code>作出了相应的实现。</p>
+<p>生成的这个<code>TOTP</code>动态密码要求是<code>10</code>位的长度，如果只是直接网上搬别人写的代码基本无用，所以就有了这一篇。</p>
+<h4 id="hotp与totp算法"><a href="#hotp与totp算法" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a><code>HOTP</code>与<code>TOTP</code>算法</h4>
+<p><code>TOTP</code>是一种基于时间的一次性密码算法，它根据预共享的密钥和当前时间计算一次性密码。该算法已经被互联网任务工作组接纳为<code>RFC 6238</code>标准，成为主动开放认证（<code>OAUTH</code>）的基础。</p>
+<p><code>TOTP</code>基于<code>HOTP</code>（<code>RFC 4226</code>），它使用一个时间戳来代替<code>HOTP</code>中的计数器（即<code>HOTP</code>算法中的<code>C</code>）。</p>
+<p><code>HOTP</code>的算法公式如下：</p>
+<p>$$HOTP(K,C) = Truncate(HMAC-SHA-1(K,C))$$</p>
+<p>主要有两个输入：一个是共享密钥<code>K</code>，另一个是计数器<code>C</code>。</p>
+<ul>
+<li><code>K</code>：共享密钥，要求每个<code>HOTP</code>的生成器都必须是唯一的；</li>
+<li><code>C</code>：计数器，是一个<code>8-byte</code>的值，计数器需要在服务端和客户端之间同步以保持一致；</li>
+</ul>
+<p><code>HOTP</code>算法基于一个动态变化的计数器值和一个静态不变的密钥，使用<code>HMAC-SHA-1</code>是散列算法（<code>RFC 2104</code>）来生成<code>HOTP</code>值。</p>
+<p><code>HMAC-SHA-1</code>的输出是<code>160</code>个字节的，所以最终用户使用的值是在此基于上基于一定规则进行截断处理之后的值。</p>
+<p>具体的截断处理分为三步：</p>
+<ol>
+<li>生成散列值：<code>HS = HMAC-SHA-1(K,C)</code>，这里的<code>HS</code>为散列算法计算出来的原始值，是一个<code>20-byte</code>的字符串；</li>
+<li>动态截取（<code>DT</code>）生成一个<code>4-byte</code>的字符串；</li>
+<li>计算<code>HOTP</code>值并返回：将第二步的字符串转换为十进制的整数，然后对<code>10^Digit</code>取模，返回结果；</li>
+</ol>
+<p>动态截取（<code>DT</code>）的算法如下：</p>
+<pre><code>    DT(String) // String = String[0]...String[19]
+     Let OffsetBits be the low-order 4 bits of String[19]
+     Offset = StToNum(OffsetBits) // 0 &lt;= OffSet &lt;= 15
+     Let P = String[OffSet]...String[OffSet+3]
+     Return the Last 31 bits of P
+</code></pre><p>实际上就是首先取<code>HS</code>的最后一个字节的低四位，然后将它转成十进制数字，并以它作为偏移值（<code>offset</code>值的大小为<code>0 &lt;= offset &lt;= 15</code>），以得到的<code>offset</code>为起始下标，从<code>HS</code>中取四个字节（从<code>HS[offset]</code>到<code>HS[offset+3]</code>，定义为<code>P</code>），然后返回<code>P</code>的最后<code>31</code>个字节。</p>
+<p>取模操作时的<code>Digit</code>至少要是<code>6</code>位的长度，长度大于等于<code>7</code>位时要考虑生成更长的<code>HOTP</code>值。</p>
+<p>对于<code>Digit = 6</code>时计算<code>HOTP</code>的示例：</p>
+<p>这里的<code>hmac_result</code>是<code>HMAC-SHA-1</code>的结果。</p>
+<pre><code>        int offset   =  hmac_result[19] &amp; 0xf ;
+        int bin_code = (hmac_result[offset]  &amp; 0x7f) &lt;&lt; 24
+           | (hmac_result[offset+1] &amp; 0xff) &lt;&lt; 16
+           | (hmac_result[offset+2] &amp; 0xff) &lt;&lt;  8
+           | (hmac_result[offset+3] &amp; 0xff) ;
+</code></pre><p>这里是示例的散列值：</p>
+<pre><code>   -------------------------------------------------------------
+   | Byte Number                                               |
+   -------------------------------------------------------------
+   |00|01|02|03|04|05|06|07|08|09|10|11|12|13|14|15|16|17|18|19|
+   -------------------------------------------------------------
+   | Byte Value                                                |
+   -------------------------------------------------------------
+   |1f|86|98|69|0e|02|ca|16|61|85|50|ef|7f|19|da|8e|94|5b|55|5a|
+   -------------------------------***********----------------++|
+</code></pre><ul>
+<li>最后的字节（即第<code>19</code>字节）的值为<code>0x5a</code></li>
+<li>该值的低四位的值为<code>0xa</code>（也就是偏移量的值<code>offset</code>）</li>
+<li>偏移量的十进制值为<code>10</code>（<code>0xa</code>）</li>
+<li>以偏移量为起始下标取四个节点，即<code>0x50ef7f19</code>，该值作为<code>DBC1</code></li>
+<li>The <code>MSB</code> of <code>DBC1</code> is <code>0x50</code> so <code>DBC2 = DBC1 = 0x50ef7f19</code>（这句没读懂<code>:(</code>）</li>
+<li><code>HOTP = DBC2 mod 10^6 = 872921</code></li>
+</ul>
+<p>上面的<code>DBC</code>是取的<code>31</code>位、无符合、大端序整数，它的首字节用<code>0x7f</code>屏蔽掉了，最后得到的<code>HOTP</code>值为：<code>872921</code>。</p>
+<p><code>HOTP</code>的算法流程图如下：</p>
+<p><img src="/img/15943726590019.jpg" alt=""></p>
+<p><code>TOTP</code>引入了一个时间步长（<code>time step</code>）的概念，它是基于一个时间戳减去一个起始计数值，然后除以步长得到的值来作为<code>HOTP</code>中的计数器<code>C</code>，并且，<code>TOTP</code>的实现可以使用<code>HMAC-SHA-256</code>或<code>HMAC-SHA-512</code>散列算法来代替<code>HOTP</code>中的<code>HMAC-SHA-1</code>算法。</p>
+<p><code>TOTP</code>的计算公式如下：</p>
+<p>$$TOTP = HOTP(K, T)$$</p>
+<p>这里用<code>T</code>作为<code>HOTP</code>的计数器，<code>T</code>的计算公式为：<code>T = (Current Unix time - T0) / X</code>，这里的<code>T0</code>为起始计数值，默认为<code>0</code>，这里的<code>X</code>为时间步长，默认为<code>30</code>，也就是说每个生成的密码的默认有效时间为<code>30</code>秒。</p>
+<p><code>TOTP</code>的算法流程图如下：</p>
+<p><img src="/img/15943726823121.jpg" alt=""></p>
+<h4 id="动手实现totp"><a href="#动手实现totp" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>动手实现<code>TOTP</code></h4>
+<p>不多说，直接<code>PO</code>代码。</p>
+<p>首先是<code>Golang</code>的实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#f92672">package</span> <span style="color:#a6e22e">gtotp</span>
+
+<span style="color:#f92672">import</span> (
+	<span style="color:#e6db74">&#34;crypto/hmac&#34;</span>
+	<span style="color:#e6db74">&#34;crypto/sha512&#34;</span>
+	<span style="color:#e6db74">&#34;fmt&#34;</span>
+	<span style="color:#e6db74">&#34;hash&#34;</span>
+	<span style="color:#e6db74">&#34;math&#34;</span>
+	<span style="color:#e6db74">&#34;time&#34;</span>
+)
+
+<span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Totp</span> <span style="color:#66d9ef">struct</span> {
+	<span style="color:#a6e22e">secret</span> <span style="color:#66d9ef">string</span>           <span style="color:#75715e">// the K, also the shared secret
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">cfg</span>    <span style="color:#a6e22e">TotpAlgorithmCfg</span> <span style="color:#75715e">// totp algorithm config parameters
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">hasher</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Hasher</span>          <span style="color:#75715e">// Hmac hash function
+</span><span style="color:#75715e"></span>}
+
+<span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TotpAlgorithmCfg</span> <span style="color:#66d9ef">struct</span> {
+	<span style="color:#a6e22e">rtnDigitSize</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// the return digit value length
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">t0</span>           <span style="color:#66d9ef">int</span> <span style="color:#75715e">// the T0, default is 0
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">timeStep</span>     <span style="color:#66d9ef">int</span> <span style="color:#75715e">// the X, default is 30
+</span><span style="color:#75715e"></span>}
+
+<span style="color:#66d9ef">type</span> <span style="color:#a6e22e">Hasher</span> <span style="color:#66d9ef">struct</span> {
+	<span style="color:#a6e22e">HashName</span> <span style="color:#66d9ef">string</span>           <span style="color:#75715e">// hash digit name
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">Digest</span>   <span style="color:#66d9ef">func</span>() <span style="color:#a6e22e">hash</span>.<span style="color:#a6e22e">Hash</span> <span style="color:#75715e">// hash function, default is sha512
+</span><span style="color:#75715e"></span>}
+
+<span style="color:#75715e">// NewDefaultTotp return Totp reference using default config parameters.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">NewDefaultTotp</span>(<span style="color:#a6e22e">sharedSecret</span> <span style="color:#66d9ef">string</span>) <span style="color:#f92672">*</span><span style="color:#a6e22e">Totp</span> {
+	<span style="color:#66d9ef">return</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">Totp</span>{
+		<span style="color:#a6e22e">secret</span>: <span style="color:#a6e22e">sharedSecret</span>,
+		<span style="color:#a6e22e">cfg</span>: <span style="color:#a6e22e">TotpAlgorithmCfg</span>{
+			<span style="color:#a6e22e">rtnDigitSize</span>: <span style="color:#ae81ff">10</span>,
+			<span style="color:#a6e22e">t0</span>:           <span style="color:#ae81ff">0</span>,
+			<span style="color:#a6e22e">timeStep</span>:     <span style="color:#ae81ff">30</span>,
+		},
+		<span style="color:#a6e22e">hasher</span>: <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">Hasher</span>{
+			<span style="color:#a6e22e">HashName</span>: <span style="color:#e6db74">&#34;sha512&#34;</span>,
+			<span style="color:#a6e22e">Digest</span>:   <span style="color:#a6e22e">sha512</span>.<span style="color:#a6e22e">New</span>,
+		},
+	}
+}
+
+<span style="color:#75715e">// Now return the digit value by current timestamp.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">t</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Totp</span>) <span style="color:#a6e22e">Now</span>() <span style="color:#66d9ef">string</span> {
+	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">At</span>(int(<span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Now</span>().<span style="color:#a6e22e">Unix</span>()))
+}
+
+<span style="color:#75715e">// At return the gigit value with the timestamp parameter.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">t</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Totp</span>) <span style="color:#a6e22e">At</span>(<span style="color:#a6e22e">timestamp</span> <span style="color:#66d9ef">int</span>) <span style="color:#66d9ef">string</span> {
+	<span style="color:#a6e22e">currentSteps</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">steps</span>(<span style="color:#a6e22e">timestamp</span>)
+	<span style="color:#a6e22e">byteSecret</span> <span style="color:#f92672">:=</span> []byte(<span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">secret</span>)
+	<span style="color:#a6e22e">secretHash</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">hmac</span>.<span style="color:#a6e22e">New</span>(<span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">hasher</span>.<span style="color:#a6e22e">Digest</span>, <span style="color:#a6e22e">byteSecret</span>)
+	<span style="color:#a6e22e">bSteps</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Itob</span>(<span style="color:#a6e22e">currentSteps</span>)
+	<span style="color:#a6e22e">secretHash</span>.<span style="color:#a6e22e">Write</span>(<span style="color:#a6e22e">bSteps</span>)
+	<span style="color:#a6e22e">hmacHash</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">secretHash</span>.<span style="color:#a6e22e">Sum</span>(<span style="color:#66d9ef">nil</span>)
+
+	<span style="color:#a6e22e">offset</span> <span style="color:#f92672">:=</span> int(<span style="color:#a6e22e">hmacHash</span>[len(<span style="color:#a6e22e">hmacHash</span>)<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xf</span>)
+
+	<span style="color:#a6e22e">code</span> <span style="color:#f92672">:=</span> ((int(<span style="color:#a6e22e">hmacHash</span>[<span style="color:#a6e22e">offset</span>]) <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0x7f</span>) <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">24</span>) |
+		((int(<span style="color:#a6e22e">hmacHash</span>[<span style="color:#a6e22e">offset</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>] <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xff</span>)) <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">16</span>) |
+		((int(<span style="color:#a6e22e">hmacHash</span>[<span style="color:#a6e22e">offset</span><span style="color:#f92672">+</span><span style="color:#ae81ff">2</span>] <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xff</span>)) <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) |
+		(int(<span style="color:#a6e22e">hmacHash</span>[<span style="color:#a6e22e">offset</span><span style="color:#f92672">+</span><span style="color:#ae81ff">3</span>]) <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xff</span>)
+
+	<span style="color:#a6e22e">code</span> = <span style="color:#a6e22e">code</span> <span style="color:#f92672">%</span> int(<span style="color:#a6e22e">math</span>.<span style="color:#a6e22e">Pow10</span>(<span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">cfg</span>.<span style="color:#a6e22e">rtnDigitSize</span>))
+	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Sprintf</span>(<span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Sprintf</span>(<span style="color:#e6db74">&#34;%%0%dd&#34;</span>, <span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">cfg</span>.<span style="color:#a6e22e">rtnDigitSize</span>), <span style="color:#a6e22e">code</span>)
+}
+
+<span style="color:#75715e">// calculate the steps of timestamp.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">t</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">Totp</span>) <span style="color:#a6e22e">steps</span>(<span style="color:#a6e22e">timestamp</span> <span style="color:#66d9ef">int</span>) <span style="color:#66d9ef">int</span> {
+	<span style="color:#66d9ef">return</span> int((<span style="color:#a6e22e">timestamp</span> <span style="color:#f92672">-</span> <span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">cfg</span>.<span style="color:#a6e22e">t0</span>) <span style="color:#f92672">/</span> <span style="color:#a6e22e">t</span>.<span style="color:#a6e22e">cfg</span>.<span style="color:#a6e22e">timeStep</span>)
+}
+
+<span style="color:#75715e">// integer to byte array
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">Itob</span>(<span style="color:#a6e22e">integer</span> <span style="color:#66d9ef">int</span>) []<span style="color:#66d9ef">byte</span> {
+	<span style="color:#a6e22e">byteArr</span> <span style="color:#f92672">:=</span> make([]<span style="color:#66d9ef">byte</span>, <span style="color:#ae81ff">8</span>)
+	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">7</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span><span style="color:#f92672">--</span> {
+		<span style="color:#a6e22e">byteArr</span>[<span style="color:#a6e22e">i</span>] = byte(<span style="color:#a6e22e">integer</span> <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xff</span>)
+		<span style="color:#a6e22e">integer</span> = <span style="color:#a6e22e">integer</span> <span style="color:#f92672">&gt;&gt;</span> <span style="color:#ae81ff">8</span>
+	}
+	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">byteArr</span>
+}
+</code></pre></div><p>测试用例：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#f92672">package</span> <span style="color:#a6e22e">gtotp</span>
+
+<span style="color:#f92672">import</span> (
+	<span style="color:#e6db74">&#34;github.com/magiconair/properties/assert&#34;</span>
+	<span style="color:#e6db74">&#34;testing&#34;</span>
+)
+
+<span style="color:#66d9ef">func</span> <span style="color:#a6e22e">TestTotp_At</span>(<span style="color:#a6e22e">t</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">testing</span>.<span style="color:#a6e22e">T</span>) {
+	<span style="color:#a6e22e">totp</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">NewDefaultTotp</span>(<span style="color:#e6db74">&#34;ninja@example.comHENNGECHALLENGE003&#34;</span>)
+	<span style="color:#a6e22e">timestamp</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">1594352095</span>
+	<span style="color:#a6e22e">digitVal</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">totp</span>.<span style="color:#a6e22e">At</span>(<span style="color:#a6e22e">timestamp</span>)
+	<span style="color:#a6e22e">assert</span>.<span style="color:#a6e22e">Equal</span>(<span style="color:#a6e22e">t</span>, <span style="color:#e6db74">&#34;0517636551&#34;</span>, <span style="color:#a6e22e">digitVal</span>)
+}
+</code></pre></div><p>下面是基于<code>Java</code>的实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">import</span> javax.crypto.Mac<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> javax.crypto.spec.SecretKeySpec<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.lang.reflect.UndeclaredThrowableException<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.nio.ByteBuffer<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.nio.charset.StandardCharsets<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.security.GeneralSecurityException<span style="color:#f92672">;</span>
+
+<span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-07-10.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Totp</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">long</span><span style="color:#f92672">[]</span> DIGITS_POWER <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>
+        1L<span style="color:#f92672">,</span>10L<span style="color:#f92672">,</span>100L<span style="color:#f92672">,</span>1000L<span style="color:#f92672">,</span>10000L<span style="color:#f92672">,</span>100000L<span style="color:#f92672">,</span>1000000L<span style="color:#f92672">,</span>10000000L<span style="color:#f92672">,</span>100000000L<span style="color:#f92672">,</span>1000000000L<span style="color:#f92672">,</span>10000000000L
+    <span style="color:#f92672">};</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">long</span> timeStep <span style="color:#f92672">=</span> 30L<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">long</span> t0 <span style="color:#f92672">=</span> 0L<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">long</span> rtnDigitSize <span style="color:#f92672">=</span> 10L<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> String hmacShaName <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;HmacSHA512&#34;</span><span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">Totp</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">(</span>30L<span style="color:#f92672">,</span> 0L<span style="color:#f92672">,</span> 10L<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;HmacSHA512&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">Totp</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> timeStep<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> t0<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> rtnDigitSize<span style="color:#f92672">,</span> String hmacShaName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">timeStep</span> <span style="color:#f92672">=</span> timeStep<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">t0</span> <span style="color:#f92672">=</span> t0<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">rtnDigitSize</span> <span style="color:#f92672">=</span> rtnDigitSize<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">hmacShaName</span> <span style="color:#f92672">=</span> hmacShaName<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">genTotp</span><span style="color:#f92672">(</span>String secret<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> time<span style="color:#f92672">){</span>
+        StringBuilder result <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">long</span> steps <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>time <span style="color:#f92672">-</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">t0</span><span style="color:#f92672">)</span> <span style="color:#f92672">/</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">timeStep</span><span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> secretBytes <span style="color:#f92672">=</span> secret<span style="color:#f92672">.</span><span style="color:#a6e22e">getBytes</span><span style="color:#f92672">(</span>StandardCharsets<span style="color:#f92672">.</span><span style="color:#a6e22e">UTF_8</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> hash <span style="color:#f92672">=</span> getHmacSha<span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">hmacShaName</span><span style="color:#f92672">,</span> secretBytes<span style="color:#f92672">,</span> longToBytes<span style="color:#f92672">(</span>steps<span style="color:#f92672">));</span>
+
+        <span style="color:#75715e">// put selected bytes into result int
+</span><span style="color:#75715e"></span>        <span style="color:#66d9ef">int</span> offset <span style="color:#f92672">=</span> hash<span style="color:#f92672">[</span>hash<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">-</span> 1<span style="color:#f92672">]</span> <span style="color:#f92672">&amp;</span> 0xf<span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">long</span> code <span style="color:#f92672">=</span>
+            <span style="color:#f92672">((</span>hash<span style="color:#f92672">[</span>offset<span style="color:#f92672">]</span> <span style="color:#f92672">&amp;</span> 0x7f<span style="color:#f92672">)</span> <span style="color:#f92672">&lt;&lt;</span> 24<span style="color:#f92672">)</span> <span style="color:#f92672">|</span>
+                <span style="color:#f92672">((</span>hash<span style="color:#f92672">[</span>offset <span style="color:#f92672">+</span> 1<span style="color:#f92672">]</span> <span style="color:#f92672">&amp;</span> 0xff<span style="color:#f92672">)</span> <span style="color:#f92672">&lt;&lt;</span> 16<span style="color:#f92672">)</span> <span style="color:#f92672">|</span>
+                <span style="color:#f92672">((</span>hash<span style="color:#f92672">[</span>offset <span style="color:#f92672">+</span> 2<span style="color:#f92672">]</span> <span style="color:#f92672">&amp;</span> 0xff<span style="color:#f92672">)</span> <span style="color:#f92672">&lt;&lt;</span> 8<span style="color:#f92672">)</span> <span style="color:#f92672">|</span>
+                <span style="color:#f92672">(</span>hash<span style="color:#f92672">[</span>offset <span style="color:#f92672">+</span> 3<span style="color:#f92672">]</span> <span style="color:#f92672">&amp;</span> 0xff<span style="color:#f92672">);</span>
+
+        code <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>code <span style="color:#f92672">%</span> DIGITS_POWER<span style="color:#f92672">[(</span><span style="color:#66d9ef">int</span><span style="color:#f92672">)</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">rtnDigitSize</span><span style="color:#f92672">]);</span>
+
+        result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> StringBuilder<span style="color:#f92672">(</span>Long<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">(</span>code<span style="color:#f92672">));</span>
+
+        <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>result<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">&lt;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">rtnDigitSize</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            result<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>0<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;0&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> result<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> <span style="color:#a6e22e">longToBytes</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        ByteBuffer buffer <span style="color:#f92672">=</span> ByteBuffer<span style="color:#f92672">.</span><span style="color:#a6e22e">allocate</span><span style="color:#f92672">(</span>Long<span style="color:#f92672">.</span><span style="color:#a6e22e">BYTES</span><span style="color:#f92672">);</span>
+        buffer<span style="color:#f92672">.</span><span style="color:#a6e22e">putLong</span><span style="color:#f92672">(</span>x<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> buffer<span style="color:#f92672">.</span><span style="color:#a6e22e">array</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> <span style="color:#a6e22e">getHmacSha</span><span style="color:#f92672">(</span>String crypto<span style="color:#f92672">,</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> secretBytes<span style="color:#f92672">,</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> msgBytes<span style="color:#f92672">){</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            Mac hmac <span style="color:#f92672">=</span> Mac<span style="color:#f92672">.</span><span style="color:#a6e22e">getInstance</span><span style="color:#f92672">(</span>crypto<span style="color:#f92672">);</span>
+            SecretKeySpec macKey <span style="color:#f92672">=</span>
+                <span style="color:#66d9ef">new</span> SecretKeySpec<span style="color:#f92672">(</span>secretBytes<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;RAW&#34;</span><span style="color:#f92672">);</span>
+            hmac<span style="color:#f92672">.</span><span style="color:#a6e22e">init</span><span style="color:#f92672">(</span>macKey<span style="color:#f92672">);</span>
+            <span style="color:#66d9ef">return</span> hmac<span style="color:#f92672">.</span><span style="color:#a6e22e">doFinal</span><span style="color:#f92672">(</span>msgBytes<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>GeneralSecurityException gse<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> UndeclaredThrowableException<span style="color:#f92672">(</span>gse<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        Totp totp <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Totp<span style="color:#f92672">();</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>totp<span style="color:#f92672">.</span><span style="color:#a6e22e">genTotp</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;ninja@example.comHENNGECHALLENGE003&#34;</span><span style="color:#f92672">,</span> 1594352095<span style="color:#f92672">));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>两种实现计算的结果是相同的。</p>
+<h4 id="总结"><a href="#总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>总结</h4>
+<p>其实认真的把<code>RFC</code>的算法过程看过一遍，看懂之后，这个算法的实现还是蛮简单的，一些比较难搞的位运算的代码都已经直接在协议中给出来了，只要注意一下大于<code>8</code>位的长度时<code>Java</code>中需要修改为<code>long</code>类型来处理就行了。</p>
+<p>这个过程中间，在使用<code>Golang</code>实现时，发现了一些没留意的有趣的事情，<code>Golang</code>中<code>time.Unix()</code>方法返回的毫秒值永远是<code>UTC</code>时区的，不管你在输出之前设置的是什么时区，想想，这样其实也蛮好的，至少轻松的把大家的标准给统一了，再也不怕时区不对导致毫秒值的时间问题了。</p>
+<p>另外，一定要抽时间看一下<code>Golang</code>中时间的模版设计的源码，据说设计很巧妙。</p>
+<p>声明：上面的两张图片引用自<code>HOTP和TOTP算法图解</code>，链接在末尾。</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://en.wikipedia.org/wiki/Time-based_One-time_Password_algorithm" target="_blank" rel="noopener">Time based one time password algorithm</a></em></li>
+<li><em><a href="https://tools.ietf.org/html/rfc6238#section-4.1" target="_blank" rel="noopener">RFC 6238</a></em></li>
+<li><em><a href="https://tools.ietf.org/html/rfc4226#section-5" target="_blank" rel="noopener">RFC 4226</a></em></li>
+<li><em><a href="https://www.jianshu.com/p/a7b900e8e50a" target="_blank" rel="noopener">HOTP和TOTP算法图解</a></em></li>
+<li><em><a href="https://github.com/rooobot/gotopt" target="_blank" rel="noopener">gotopt github repo</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/totp-algorithm/" target="_blank" rel="noopener">https://zhaoyang.me/posts/totp-algorithm/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/consistent-hash-algorithm/" class="related-link">读源码学架构系列：一致性哈希</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/dubbo-export-refer-analysis/" class="related-link">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-isp/" class="related-link">读源码学架构系列：接口隔离原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/golang/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>Golang</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/totp/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>TOTP</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/algorithm/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>algorithm</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/dubbo-export-refer-analysis/" rel="prev">&lt; 读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-ood-isp/" rel="next">读源码学架构系列：接口隔离原则 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

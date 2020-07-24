@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：SPI之Dubbo实现 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="TL;DR 前面两篇已经分析了JDK和Spring的SPI的实现，今天将分析著名的RPC框架D……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-dubbo-spi/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-06-22T16:06:24+08:00",
+        "dateModified": "2020-07-17T08:53:19+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-dubbo-spi/",
+        "headline": "读源码学架构系列：SPI之Dubbo实现",
+        "description": "TL;DR 前面两篇已经分析了JDK和Spring的SPI的实现，今天将分析著名的RPC框架D……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  11920 ,
+        "image": ["https://zhaoyang.me/img/15929612715481.jpg","https://zhaoyang.me/img/15929609310773.jpg","https://zhaoyang.me/img/15929622720718.jpg","https://zhaoyang.me/img/15929626363613.jpg","https://zhaoyang.me/img/15929628265248.jpg","https://zhaoyang.me/img/15929629433380.jpg","https://zhaoyang.me/img/15929632125699.jpg","https://zhaoyang.me/img/15929633276278.jpg","https://zhaoyang.me/img/15929767639760.jpg","https://zhaoyang.me/img/15929768911578.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：SPI之Dubbo实现" />
+<meta property="og:description" content="TL;DR 前面两篇已经分析了JDK和Spring的SPI的实现，今天将分析著名的RPC框架D……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-dubbo-spi/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15929612715481.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-06-22T16:06:24&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-17T08:53:19&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：SPI之Dubbo实现</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-06-22T16:06:24&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.6.22</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/spi/" class="category-link">SPI</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>TL;DR</p>
+<p>前面两篇已经分析了<code>JDK</code>和<code>Spring</code>的<code>SPI</code>的实现，今天将分析著名的<code>RPC</code>框架<code>Dubbo</code>中的<code>SPI</code>实现机制。</p>
+<p><code>Dubbo</code>的实现博两家之长，并在实现上更进一步改进，并且基于此，<code>Dubbo</code>框架对开发者十分的友好，几乎所有的组件都给开发者预留出了扩展点，方便开发者自行实现不同的扩展，真正的实现了微内核+插件机制。</p>
+<p><code>Dubbo</code>框架的架构设计非常之美，本篇是读源码学架构设计之<code>SPI</code>分析的最后一篇，后面我会从架构设计的其它方面来进一步分析<code>Spring</code>和<code>Dubbo</code>，以及<code>Mybatis</code>等框架的源码，尽可能的全方位去感悟这些框架中的优秀设计。</p>
+<p>本篇内容大纲：</p>
+<ol>
+<li><code>Dubbo</code>的<code>SPI</code>实现</li>
+<li>与<code>JDK</code>和<code>Spring</code>的<code>SPI</code>的差异</li>
+<li><code>Dubbo</code>中<code>SPI</code>的应用</li>
+<li>基于<code>SPI</code>实现<code>Dubbo</code>扩展</li>
+</ol>
+<h4 id="0x01-dubbo的spi实现"><a href="#0x01-dubbo的spi实现" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 Dubbo的SPI实现</h4>
+<p><code>Dubbo</code>的<code>SPI</code>实现，服务的定义必须是用注解<code>@SPI</code>标注的类，该注解可以接收一个<code>String</code>类型的参数，用于指定该服务的默认实现。</p>
+<p>服务加载器是<code>ExtensionLoader&lt;T&gt;.class</code>，它默认会从三个路径下加载资源文件：</p>
+<ul>
+<li><code>META-INF/services/</code></li>
+<li><code>META-INF/dubbo/</code></li>
+<li><code>META-INF/dubbo/internal/</code></li>
+</ul>
+<p>资源文件的命名与<code>JDK</code>中<code>SPI</code>的命名规则相同，必须是服务接口类的全路径类名，内容为<code>key=value</code>的形式，其中<code>key</code>是配置名（就是<code>@SPI</code>注解可以接收的那个参数值），<code>value</code>是扩展实现类的全路径类名，同一个文件中可以有多个实现，每行定义一个。</p>
+<p>例如，<code>dubbo-common</code>模块下，<code>com.alibaba.dubbo.common.compiler.Compiler</code>服务的资源文件的内容为：</p>
+<pre><code class="language-properties" data-lang="properties">adaptive=com.alibaba.dubbo.common.compiler.support.AdaptiveCompiler
+jdk=com.alibaba.dubbo.common.compiler.support.JdkCompiler
+javassist=com.alibaba.dubbo.common.compiler.support.JavassistCompiler
+</code></pre><p>这里定义了三个实现，其中<code>adaptive</code>、<code>jdk</code>、<code>javassist</code>分别为配置名，对应的值为实现类的全路径类名。</p>
+<p>在<code>Compiler</code>接口的定义中：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Compiler. (SPI, Singleton, ThreadSafe)
+</span><span style="color:#75715e"> */</span>
+<span style="color:#a6e22e">@SPI</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;javassist&#34;</span><span style="color:#f92672">)</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Compiler</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Compile java source code.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param code        Java source code
+</span><span style="color:#75715e">     * @param classLoader classloader
+</span><span style="color:#75715e">     * @return Compiled class
+</span><span style="color:#75715e">     */</span>
+    Class<span style="color:#f92672">&lt;?&gt;</span> compile<span style="color:#f92672">(</span>String code<span style="color:#f92672">,</span> ClassLoader classLoader<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>@SPI</code>注解指定了参数<code>javassist</code>，即，默认的实现为<code>com.alibaba.dubbo.common.compiler.support.JavassistCompiler</code>。</p>
+<p>现在，<code>SPI</code>需要的四个角色已经齐了。</p>
+<p>除了<code>@SPI</code>注解，<code>Dubbo</code>还提供了另外两个注解：<code>@Adaptive</code>和<code>@Activate</code>，这三个注解的用途分别是什么呢？</p>
+<ul>
+<li><code>@SPI</code>：主要用于接口上。扩展接口的标识注解，接收默认实现的配置名参数。</li>
+<li><code>@Adaptive</code>：主要用于方法上。用于指定哪个目标扩展会被注入，目标扩展的名称取决于<code>URL</code>的参数值和这个注解的参数中指定的参数值。如果没有找到指定的参数，则会使用默认的扩展来注入（在<code>@SPI</code>中指定）。如果配置了多个参数，则会按配置的参数名的顺序依次从<code>URL</code>中查找对应的参数值，一旦找到就会停止查找并进行注入，如果全部找完都没有找到，则会抛出异常。如果服务定义接口的注解<code>@SPI</code>中没有指定默认的配置名，则会按一定的规则自动生成一个（具体的规则是：将类名按大写字母做切分，然后转为全小写，再用<code>.</code>号将切分后转为小写的字符按之前的顺序连接起来，如<code>YyyInvokerWrapper</code>则会转为<code>yyy.invoker.wrapper</code>），并且会用这个名称作为参数名去从<code>URL</code>中查找参数值。</li>
+<li><code>@Activate</code>：主要用于扩展实现类上。用于根据给定的条件自动激活确定的扩展，具体的条件通过注解的参数来指定。</li>
+</ul>
+<p><code>Dubbo</code>的服务提供者<code>ExtensionLoader</code>结合这三个注解，极大的增强了<code>SPI</code>的功能。具体来说，<code>Dubbo</code>中的扩展点有以下特性：</p>
+<ul>
+<li>扩展点自动包装</li>
+<li>扩展点自动装配</li>
+<li>扩展点自适应</li>
+<li>扩展点自动激活</li>
+</ul>
+<p>我们一个一个分析<code>Dubbo</code>是如何来实现这些功能的。</p>
+<p>因为这些特性是在扩展伴随着扩展的加载过程而体现出来的，<code>Dubbo</code>提供了三个注解，对应于三个加载的方法，我们逐个分析对应于每一个注解的扩展加载方法，来看看在这些过程中，<code>Dubbo</code>是如何实现上面这些特性的。</p>
+<p>对应于三个注解的三个扩展加载方法：</p>
+<ul>
+<li><code>getExtension(String name)</code></li>
+<li><code>getAdaptiveExtension()</code></li>
+<li><code>getActivateExtension(URL url, String key)</code></li>
+</ul>
+<p>这三个方法都定义在<code>ExtensionLoader</code>类中，这个类是一个泛型类，构造方法被<code>private</code>修饰掉，工厂方法为<code>getExtensionLoader(Class&lt;T&gt; type)</code>，具体实现如下：</p>
+<p><img src="/img/15929612715481.jpg" alt=""></p>
+<p>从上面的代码可以看到，<code>Dubbo</code>中扩展的定义必须是接口，同时，服务接口必须使用<code>SPI</code>注解标注，否则会抛出异常。</p>
+<p>接下来会看到，对于所有的<code>Class&lt;T&gt; type</code>，都会首先从本地缓存中去查找是否已经创建过<code>ExtensionLoader&lt;T&gt;</code>，如果没有，才会新创建，并且会通过<code>CAS</code>操作放入到本地缓存（<code>ConcurrentMap</code>）中。</p>
+<h5 id="getextensionstring-name分析"><a href="#getextensionstring-name分析" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>getExtension(String name)分析</h5>
+<p>现在来分析前面的三个方法，首先看第一个：<code>getExtension(String name)</code>，这个方法是用来根据传入的<code>name</code>名称查找扩展的，如果没有找到会抛出异常。具体实现如下：</p>
+<p><img src="/img/15929609310773.jpg" alt=""></p>
+<p>通过<code>name</code>查找扩展时，首先也会从本地缓存<code>cachedInstances</code>中查找，缓存中存放时会使用<code>Holder</code>类进行装饰，默认没有查找到时，会创建一个新的<code>Holder</code>对象，并以当前的<code>name</code>为<code>key</code>，新创建的<code>Holder</code>对象为<code>value</code>，组成键值对通过<code>CAS</code>的方式保存到本地缓存中。</p>
+<p>然后接下来就从<code>holder</code>中去拿对应<code>name</code>的扩展，如果没有，则通过双重检查的方式来创建（类似于双重检查方式的单例模式，但要注意的是，局部变量的引用需要用<code>volatile</code>修饰，来保证对象创建的过程中，不会发生指令重排序），这里同步的是<code>holder</code>对象，我们查看<code>Holder</code>类的代码如下：</p>
+<p><img src="/img/15929622720718.jpg" alt=""></p>
+<p>注意这里的<code>value</code>被<code>volatile</code>修饰，所以上面的双重检查方式可以确保只会创建一次，且创建对象的过程不会发生指令重排序。</p>
+<p>接着看<code>createExtension</code>方法：</p>
+<p><img src="/img/15929626363613.jpg" alt=""></p>
+<p>首先调用<code>getExtensionClasses()</code>方法来获取扩展类的<code>Class</code>：</p>
+<p><img src="/img/15929628265248.jpg" alt=""></p>
+<p>这里又是同样的套路，将<code>Class</code>缓存到本地的<code>cachedClassed</code>缓存中，同样是双重检查（注意<code>cachedClasses</code>的类型，也是一个<code>Holder</code>类型），继续看<code>loadExtensionClasses()</code>方法：</p>
+<p><img src="/img/15929629433380.jpg" alt=""></p>
+<p>这里会通过反射去查看当前类型的<code>ExtensionLoader</code>（在<code>getExtensionLoader()</code>方法中传入的参数的类型）是否使用了<code>SPI</code>注解标注，并且会判断是否指定了默认值（即指定默认的配置名，这个配置名就是资源文件中配置的键值对的键）；然后会从三个目录路径去查找扩展的实现。</p>
+<p><code>loadDirectory</code>方法的具体实现：</p>
+<p><img src="/img/15929632125699.jpg" alt=""></p>
+<p>查找到匹配的文件之后，会进一步进行解析，即<code>loadResource()</code>方法：</p>
+<p><img src="/img/15929633276278.jpg" alt=""></p>
+<p>这里会对每个文件按照先前定义的规则进行解析，找到了配置的扩展实现类时，就会调用<code>loadClass()</code>方法进行处理：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">loadClass</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Class<span style="color:#f92672">&lt;?&gt;&gt;</span> extensionClasses<span style="color:#f92672">,</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">net</span><span style="color:#f92672">.</span><span style="color:#a6e22e">URL</span> resourceURL<span style="color:#f92672">,</span> Class<span style="color:#f92672">&lt;?&gt;</span> clazz<span style="color:#f92672">,</span> String name<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> NoSuchMethodException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>type<span style="color:#f92672">.</span><span style="color:#a6e22e">isAssignableFrom</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Error when load extension class(interface: &#34;</span> <span style="color:#f92672">+</span>
+                    type <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;, class line: &#34;</span> <span style="color:#f92672">+</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;), class &#34;</span>
+                    <span style="color:#f92672">+</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;is not subtype of interface.&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">isAnnotationPresent</span><span style="color:#f92672">(</span>Adaptive<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cachedAdaptiveClass <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                cachedAdaptiveClass <span style="color:#f92672">=</span> clazz<span style="color:#f92672">;</span>
+            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>cachedAdaptiveClass<span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;More than 1 adaptive class found: &#34;</span>
+                        <span style="color:#f92672">+</span> cachedAdaptiveClass<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span>
+                        <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;, &#34;</span> <span style="color:#f92672">+</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">());</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>isWrapperClass<span style="color:#f92672">(</span>clazz<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+            Set<span style="color:#f92672">&lt;</span>Class<span style="color:#f92672">&lt;?&gt;&gt;</span> wrappers <span style="color:#f92672">=</span> cachedWrapperClasses<span style="color:#f92672">;</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>wrappers <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                cachedWrapperClasses <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConcurrentHashSet<span style="color:#f92672">&lt;</span>Class<span style="color:#f92672">&lt;?&gt;&gt;();</span>
+                wrappers <span style="color:#f92672">=</span> cachedWrapperClasses<span style="color:#f92672">;</span>
+            <span style="color:#f92672">}</span>
+            wrappers<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+            clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getConstructor</span><span style="color:#f92672">();</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>name <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> name<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                name <span style="color:#f92672">=</span> findAnnotationName<span style="color:#f92672">(</span>clazz<span style="color:#f92672">);</span>
+                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>name<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;No such extension name for the class &#34;</span> <span style="color:#f92672">+</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; in the config &#34;</span> <span style="color:#f92672">+</span> resourceURL<span style="color:#f92672">);</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+            String<span style="color:#f92672">[]</span> names <span style="color:#f92672">=</span> NAME_SEPARATOR<span style="color:#f92672">.</span><span style="color:#a6e22e">split</span><span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>names <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> names<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                Activate activate <span style="color:#f92672">=</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getAnnotation</span><span style="color:#f92672">(</span>Activate<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>activate <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    cachedActivates<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>names<span style="color:#f92672">[</span>0<span style="color:#f92672">],</span> activate<span style="color:#f92672">);</span>
+                <span style="color:#f92672">}</span>
+                <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>String n <span style="color:#f92672">:</span> names<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>cachedNames<span style="color:#f92672">.</span><span style="color:#a6e22e">containsKey</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                        cachedNames<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">,</span> n<span style="color:#f92672">);</span>
+                    <span style="color:#f92672">}</span>
+                    Class<span style="color:#f92672">&lt;?&gt;</span> c <span style="color:#f92672">=</span> extensionClasses<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>n<span style="color:#f92672">);</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                        extensionClasses<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>n<span style="color:#f92672">,</span> clazz<span style="color:#f92672">);</span>
+                    <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>c <span style="color:#f92672">!=</span> clazz<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Duplicate extension &#34;</span> <span style="color:#f92672">+</span> type<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; name &#34;</span> <span style="color:#f92672">+</span> n <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; on &#34;</span> <span style="color:#f92672">+</span> c<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; and &#34;</span> <span style="color:#f92672">+</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">());</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>首先会判断有没有实现扩展接口，然后会检查是否使用<code>@Adaptive</code>注解标注，如果有，还会进一步判断<code>cachedAdaptiveClass</code>有没有赋值，如果已经赋值，说明检测到了多个默认实现，此时会抛出异常，否则会将默认实现保存在<code>cachedAdaptiveClass</code>变量中。</p>
+<p>如果没有使用<code>@Adaptive</code>注解标注，则会进一步判断实现类是不是扩展接口的包装类：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">isWrapperClass</span><span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> clazz<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">getConstructor</span><span style="color:#f92672">(</span>type<span style="color:#f92672">);</span>
+            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>NoSuchMethodException e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>判断的标准就是实现类有没有定义针对扩展接口的构造函数，如果有，则会被定义会包装类，否则就不是包装类。</p>
+<p>如果判断结果是包装类，则会缓存到本地缓存<code>cachedWrapperClasses</code>中。</p>
+<p>如果也不是包装类，则继续走最后的<code>else</code>分支。</p>
+<p>这里首先会对配置名（资源文件中定义的键值对的键）进行空判断，里面兼容了过期的注解<code>@Extension</code>；接着，会对配置名按逗号进行分割（这也就是说资源文件中配置扩展的实现类时，配置名可以配置多个，用逗号隔开即可），当配置名存在时，还会先检查实现类有没有被<code>@Activate</code>注解标注，如果有，则会将分割后的第一个配置名和<code>@Activate</code>注解信息作为键值对，缓存在本地缓存<code>cachedActivates</code>中。</p>
+<p>接着，对分割后的配置名列表循环处理，首先判断扩展实现类的配置名有没有缓存在本地缓存中，如果没有，则缓存到本地缓存<code>cachedNames</code>中（这里也只会缓存第一个）；然后如果实现类和配置名还没有存入<code>loadDirectory()</code>方法传入的<code>Map</code>对象的话，就将解析到的配置名和实现类的<code>Class</code>作为键值对，放入这个<code>Map</code>中。</p>
+<p>到这里，对于当前<code>ExtensionLoader&lt;T&gt;</code>类型的所有扩展实现已经解析完成，我们回到<code>createExtension()</code>方法的第一行：<code>getExtensionClasses().get(name)</code>，这里会从上面解析的结果<code>Map</code>中按传入的配置名进行查找对应的实现类的<code>Class</code>，如果没有找到就会抛出异常。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">private</span> T <span style="color:#a6e22e">createExtension</span><span style="color:#f92672">(</span>String name<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        Class<span style="color:#f92672">&lt;?&gt;</span> clazz <span style="color:#f92672">=</span> getExtensionClasses<span style="color:#f92672">().</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>clazz <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> findException<span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            T instance <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>T<span style="color:#f92672">)</span> EXTENSION_INSTANCES<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">);</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>instance <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                EXTENSION_INSTANCES<span style="color:#f92672">.</span><span style="color:#a6e22e">putIfAbsent</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">,</span> clazz<span style="color:#f92672">.</span><span style="color:#a6e22e">newInstance</span><span style="color:#f92672">());</span>
+                instance <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>T<span style="color:#f92672">)</span> EXTENSION_INSTANCES<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>clazz<span style="color:#f92672">);</span>
+            <span style="color:#f92672">}</span>
+            injectExtension<span style="color:#f92672">(</span>instance<span style="color:#f92672">);</span>
+            Set<span style="color:#f92672">&lt;</span>Class<span style="color:#f92672">&lt;?&gt;&gt;</span> wrapperClasses <span style="color:#f92672">=</span> cachedWrapperClasses<span style="color:#f92672">;</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>wrapperClasses <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>wrapperClasses<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> wrapperClass <span style="color:#f92672">:</span> wrapperClasses<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    instance <span style="color:#f92672">=</span> injectExtension<span style="color:#f92672">((</span>T<span style="color:#f92672">)</span> wrapperClass<span style="color:#f92672">.</span><span style="color:#a6e22e">getConstructor</span><span style="color:#f92672">(</span>type<span style="color:#f92672">).</span><span style="color:#a6e22e">newInstance</span><span style="color:#f92672">(</span>instance<span style="color:#f92672">));</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+            <span style="color:#66d9ef">return</span> instance<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable t<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Extension instance(name: &#34;</span> <span style="color:#f92672">+</span> name <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;, class: &#34;</span> <span style="color:#f92672">+</span>
+                    type <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)  could not be instantiated: &#34;</span> <span style="color:#f92672">+</span> t<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">(),</span> t<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>如果找到了，接下来又是从本地缓存中去查找扩展实例对象，没有找到缓存才通过<code>CAS</code>方式使用<code>class.newInstance()</code>来创建新的实例，同时缓存到本地。接下来有一行调用：<code>injectExtension(instance)</code>，具体实现为：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">private</span> T <span style="color:#a6e22e">injectExtension</span><span style="color:#f92672">(</span>T instance<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>objectFactory <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Method method <span style="color:#f92672">:</span> instance<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getMethods</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">().</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;set&#34;</span><span style="color:#f92672">)</span>
+                            <span style="color:#f92672">&amp;&amp;</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameterTypes</span><span style="color:#f92672">().</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">==</span> 1
+                            <span style="color:#f92672">&amp;&amp;</span> Modifier<span style="color:#f92672">.</span><span style="color:#a6e22e">isPublic</span><span style="color:#f92672">(</span>method<span style="color:#f92672">.</span><span style="color:#a6e22e">getModifiers</span><span style="color:#f92672">()))</span> <span style="color:#f92672">{</span>
+                        <span style="color:#75715e">/**
+</span><span style="color:#75715e">                         * Check {@link DisableInject} to see if we need auto injection for this property
+</span><span style="color:#75715e">                         */</span>
+                        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>method<span style="color:#f92672">.</span><span style="color:#a6e22e">getAnnotation</span><span style="color:#f92672">(</span>DisableInject<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                            <span style="color:#66d9ef">continue</span><span style="color:#f92672">;</span>
+                        <span style="color:#f92672">}</span>
+                        Class<span style="color:#f92672">&lt;?&gt;</span> pt <span style="color:#f92672">=</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameterTypes</span><span style="color:#f92672">()[</span>0<span style="color:#f92672">];</span>
+                        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                            String property <span style="color:#f92672">=</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">().</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;</span> 3 <span style="color:#f92672">?</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">().</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span>3<span style="color:#f92672">,</span> 4<span style="color:#f92672">).</span><span style="color:#a6e22e">toLowerCase</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">().</span><span style="color:#a6e22e">substring</span><span style="color:#f92672">(</span>4<span style="color:#f92672">)</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">;</span>
+                            Object object <span style="color:#f92672">=</span> objectFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>pt<span style="color:#f92672">,</span> property<span style="color:#f92672">);</span>
+                            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>object <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                                method<span style="color:#f92672">.</span><span style="color:#a6e22e">invoke</span><span style="color:#f92672">(</span>instance<span style="color:#f92672">,</span> object<span style="color:#f92672">);</span>
+                            <span style="color:#f92672">}</span>
+                        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                            logger<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;fail to inject via method &#34;</span> <span style="color:#f92672">+</span> method<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span>
+                                    <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; of interface &#34;</span> <span style="color:#f92672">+</span> type<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;: &#34;</span> <span style="color:#f92672">+</span> e<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">(),</span> e<span style="color:#f92672">);</span>
+                        <span style="color:#f92672">}</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            logger<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span>e<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">(),</span> e<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> instance<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>首先对<code>objectFactory</code>进行了为空判断，这个变量是在<code>ExtensionLoader</code>的构造方法中初始化的，只要<code>getExtensionLoader(Class&lt;T&gt;)</code>方法传入的类型不是<code>ExtensionFactory</code>类型，则会调用<code>ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension())</code>来初始化，具体过程我们稍后再分析，这个方法也是我们前面要分析的三个方法之一。</p>
+<p>我们回到<code>injectExtension()</code>方法，<code>objectFactory</code>不为空时，会反射获取传入的对象实例的所有方法列表，然后判断所有以<code>set</code>开头（即<code>setter</code>方法），且只有一个参数，同时是使用<code>public</code>修饰的方法；找到后，继续判断，要求方法没有被<code>@DisableInject</code>注解标注，然后将找到的方法的参数类型取出来，通过分割<code>setter</code>方法，找到具体的属性名<code>property</code>，然后使用参数类型和属性名去<code>objectFactory</code>中查找有没有对应的扩展对象，如果有，则反射调用<code>setter</code>方法进行注入，<strong>这个过程就是<code>Dubbo</code>框架对扩展的自动装配的实现</strong>。（<code>objectFactory</code>对象初始化时，也是通过服务加载器<code>ExtensionLoader</code>来加载的，所以，对于查找到的扩展实现会缓存在对应的<code>ExtensionLoader</code>实例中）</p>
+<p>继续回到<code>createExtension()</code>方法，接下来，如果之前解析时，找到的当前类型的<code>Wrapper</code>集合不为空，则会循环对<code>Wrapper</code>类进行注入并实例化，这里要注意循环中的包装实例化代码：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> wrapperClass <span style="color:#f92672">:</span> wrapperClasses<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    instance <span style="color:#f92672">=</span> injectExtension<span style="color:#f92672">((</span>T<span style="color:#f92672">)</span> wrapperClass<span style="color:#f92672">.</span><span style="color:#a6e22e">getConstructor</span><span style="color:#f92672">(</span>type<span style="color:#f92672">).</span><span style="color:#a6e22e">newInstance</span><span style="color:#f92672">(</span>instance<span style="color:#f92672">));</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>这里包装时，<strong>传入的参数是<code>instance</code>，包装实例化完成后又重新赋值给了<code>instance</code>进行下一次包装，直到所有的包装类全部包装完成</strong>，最后把所有包装类包装后的实例化对象作为结果返回出去。<strong>这也是<code>Dubbo</code>框架对扩展的自动包装的实现</strong>。</p>
+<p><code>createExtension()</code>方法的执行就到此结束了，我们再转回到<code>getExtension(String name)</code>方法，在创建了扩展实例后，将实例放到了之前创建的空<code>Holder</code>对象中，到这里<code>getExtension(String name)</code>方法就处理完成了。</p>
+<p>接下来分析<code>getAdaptiveExtension()</code>方法。</p>
+<h5 id="getadaptiveextension分析"><a href="#getadaptiveextension分析" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>getAdaptiveExtension()分析</h5>
+<p>方法的具体实现如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">public</span> T <span style="color:#a6e22e">getAdaptiveExtension</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Object instance <span style="color:#f92672">=</span> cachedAdaptiveInstance<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>instance <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>createAdaptiveInstanceError <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>cachedAdaptiveInstance<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                    instance <span style="color:#f92672">=</span> cachedAdaptiveInstance<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>instance <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                            instance <span style="color:#f92672">=</span> createAdaptiveExtension<span style="color:#f92672">();</span>
+                            cachedAdaptiveInstance<span style="color:#f92672">.</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>instance<span style="color:#f92672">);</span>
+                        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable t<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                            createAdaptiveInstanceError <span style="color:#f92672">=</span> t<span style="color:#f92672">;</span>
+                            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;fail to create adaptive instance: &#34;</span> <span style="color:#f92672">+</span> t<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">(),</span> t<span style="color:#f92672">);</span>
+                        <span style="color:#f92672">}</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;fail to create adaptive instance: &#34;</span> <span style="color:#f92672">+</span> createAdaptiveInstanceError<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">(),</span> createAdaptiveInstanceError<span style="color:#f92672">);</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>T<span style="color:#f92672">)</span> instance<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>同样是<code>Holder</code>包装的本地缓存<code>cachedAdaptiveInstance</code>配合双重检查的方式创建<code>Adaptive</code>扩展，我们直接看<code>createAdaptiveExtension()</code>方法：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#66d9ef">private</span> T <span style="color:#a6e22e">createAdaptiveExtension</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> injectExtension<span style="color:#f92672">((</span>T<span style="color:#f92672">)</span> getAdaptiveExtensionClass<span style="color:#f92672">().</span><span style="color:#a6e22e">newInstance</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Can not create adaptive extension &#34;</span> <span style="color:#f92672">+</span> type <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;, cause: &#34;</span> <span style="color:#f92672">+</span> e<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">(),</span> e<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>该方法直接对<code>getAdaptiveExtensionClass()</code>创建的实例对象进行包装并返回，我们进一步看<code>getAdaptiveExtensionClass()</code>方法：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">private</span> Class<span style="color:#f92672">&lt;?&gt;</span> getAdaptiveExtensionClass<span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        getExtensionClasses<span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cachedAdaptiveClass <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> cachedAdaptiveClass<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> cachedAdaptiveClass <span style="color:#f92672">=</span> createAdaptiveExtensionClass<span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p><code>getExtensionClasses()</code>方法前面已经分析过，会查找并解析所有的扩展实现类，并将查找到的结果缓存到本地。接着就是判断<code>cachedAdaptiveClass</code>是否为<code>null</code>，这个<code>cachedAdaptiveClass</code>我们在前面分析<code>loadClass()</code>方法时，有一个条件分支就是判断扩展实现类是否有被<code>@Adaptive</code>注解标注的，有的话会赋值给<code>cachedAdaptiveClass</code>变量，有多个会抛出异常。在这里，如果前面已经检测到了，就会直接返回这个结果，如果没有，则继续调用<code>createAdaptiveExtensionClass()</code>方法。</p>
+<p>这个方法的代码很长，就不贴上来了，首先，它会获取当前<code>ExtensionLoader&lt;T&gt;</code>绑定的类型的所有方法列表，依次判断方法有没有被<code>@Adaptive</code>注解标注，如果有，则会给它生成一个<code>Adaptive</code>类，使用一个<code>StringBuilder</code>类来存放该类的代码，最后将生成的<code>Adaptive</code>类的代码以<code>String</code>类型返回。</p>
+<p><code>createAdaptiveExtensionClass()</code>方法在拿到了生成的类的代码后，使用<code>ExtensionLoader</code>的<code>classLoader</code>对象和<code>Compiler.class</code>扩展的默认实现<code>JavassistCompiler</code>在内存中对生成的类代码进行编译，得到对应的<code>Class</code>文件的内容。</p>
+<p>回到<code>createAdaptiveExtension()</code>方法，拿到了<code>Adaptive</code>类的<code>Class</code>后，通过反射生成了该类的实例，然后将该实例对象作为参数传给<code>injectExtension()</code>方法进行依赖注入。<strong>这个处理过程就是<code>Dubbo</code>框架对扩展的自适应的实现</strong>。</p>
+<p><code>getAdaptiveExtension()</code>的作用就是利用装饰模式对<code>extension</code>接口<code>class</code>进行包装，然后生成一个以<code>$Adaptive</code>结尾的装饰类，该类会实现用<code>@Adaptive</code>注解标注的方法，在方法中动态的根据<code>url</code>传入的参数来动态的调用不同的的接口实现类来处理逻辑。</p>
+<p>还有一种情况的<code>Adaptive</code>类不是动态生成的，比如<code>Compiler.class</code>接口的<code>AdaptiveCompiler.class</code>类，是本来就实现好的，它会判断<code>ApplicationConfig</code>在配置时是否有指定默认的<code>Compiler</code>，没有的话就获取默认的扩展实现。本质上还是装饰模式的应用。</p>
+<p>下面的代码是运行时动态生成的<code>Protocol$Adaptive</code>类的代码：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.rpc<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Exporter<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Invoker<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Protocol<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.RpcException<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Protocol$Adaptive</span> <span style="color:#66d9ef">implements</span> Protocol <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">public</span> Invoker <span style="color:#a6e22e">refer</span><span style="color:#f92672">(</span>Class class_<span style="color:#f92672">,</span> URL uRL<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        String string<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string2 <span style="color:#f92672">=</span> string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;dubbo&#34;</span> <span style="color:#f92672">:</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.Protocol) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([protocol])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Protocol protocol <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">refer</span><span style="color:#f92672">(</span>class_<span style="color:#f92672">,</span> uRL<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Exporter <span style="color:#a6e22e">export</span><span style="color:#f92672">(</span>Invoker invoker<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        String string<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument getUrl() == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL <span style="color:#f92672">=</span> invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">();</span>
+        String string2 <span style="color:#f92672">=</span> string <span style="color:#f92672">=</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;dubbo&#34;</span> <span style="color:#f92672">:</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.Protocol) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([protocol])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Protocol protocol <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">export</span><span style="color:#f92672">(</span>invoker<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">destroy</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> UnsupportedOperationException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;method public abstract void com.alibaba.dubbo.rpc.Protocol.destroy() of interface com.alibaba.dubbo.rpc.Protocol is not adaptive method!&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getDefaultPort</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> UnsupportedOperationException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;method public abstract int com.alibaba.dubbo.rpc.Protocol.getDefaultPort() of interface com.alibaba.dubbo.rpc.Protocol is not adaptive method!&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>到这里<code>getAdaptiveExtension()</code>方法的实现就分析完成了，接下来分析最后一个方法<code>getActivateExtension()</code>。</p>
+<h5 id="getactivateextension分析"><a href="#getactivateextension分析" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>getActivateExtension()分析</h5>
+<p>经过对前面两个方法的分析，已经清楚了前面提到的<code>Dubbo</code>框架对扩展实现的四个特性中的三个，现在还有最后一个关于自适应的特性，我们先来看<code>getActivateExtension()</code>的处理过程：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Get activate extensions.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param url    url
+</span><span style="color:#75715e">     * @param values extension point names
+</span><span style="color:#75715e">     * @param group  group
+</span><span style="color:#75715e">     * @return extension list which are activated
+</span><span style="color:#75715e">     * @see com.alibaba.dubbo.common.extension.Activate
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">getActivateExtension</span><span style="color:#f92672">(</span>URL url<span style="color:#f92672">,</span> String<span style="color:#f92672">[]</span> values<span style="color:#f92672">,</span> String group<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> exts <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;();</span>
+        List<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> names <span style="color:#f92672">=</span> values <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;(</span>0<span style="color:#f92672">)</span> <span style="color:#f92672">:</span> Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">asList</span><span style="color:#f92672">(</span>values<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>names<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">REMOVE_VALUE_PREFIX</span> <span style="color:#f92672">+</span> Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">DEFAULT_KEY</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+            getExtensionClasses<span style="color:#f92672">();</span>
+            <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Map<span style="color:#f92672">.</span><span style="color:#a6e22e">Entry</span><span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Activate<span style="color:#f92672">&gt;</span> entry <span style="color:#f92672">:</span> cachedActivates<span style="color:#f92672">.</span><span style="color:#a6e22e">entrySet</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+                String name <span style="color:#f92672">=</span> entry<span style="color:#f92672">.</span><span style="color:#a6e22e">getKey</span><span style="color:#f92672">();</span>
+                Activate activate <span style="color:#f92672">=</span> entry<span style="color:#f92672">.</span><span style="color:#a6e22e">getValue</span><span style="color:#f92672">();</span>
+                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>isMatchGroup<span style="color:#f92672">(</span>group<span style="color:#f92672">,</span> activate<span style="color:#f92672">.</span><span style="color:#a6e22e">group</span><span style="color:#f92672">()))</span> <span style="color:#f92672">{</span>
+                    T ext <span style="color:#f92672">=</span> getExtension<span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>names<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>name<span style="color:#f92672">)</span>
+                            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>names<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">REMOVE_VALUE_PREFIX</span> <span style="color:#f92672">+</span> name<span style="color:#f92672">)</span>
+                            <span style="color:#f92672">&amp;&amp;</span> isActive<span style="color:#f92672">(</span>activate<span style="color:#f92672">,</span> url<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                        exts<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>ext<span style="color:#f92672">);</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+            Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">sort</span><span style="color:#f92672">(</span>exts<span style="color:#f92672">,</span> ActivateComparator<span style="color:#f92672">.</span><span style="color:#a6e22e">COMPARATOR</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> usrs <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;();</span>
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> names<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">();</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+            String name <span style="color:#f92672">=</span> names<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>i<span style="color:#f92672">);</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>name<span style="color:#f92672">.</span><span style="color:#a6e22e">startsWith</span><span style="color:#f92672">(</span>Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">REMOVE_VALUE_PREFIX</span><span style="color:#f92672">)</span>
+                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>names<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">REMOVE_VALUE_PREFIX</span> <span style="color:#f92672">+</span> name<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>Constants<span style="color:#f92672">.</span><span style="color:#a6e22e">DEFAULT_KEY</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>name<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>usrs<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+                        exts<span style="color:#f92672">.</span><span style="color:#a6e22e">addAll</span><span style="color:#f92672">(</span>0<span style="color:#f92672">,</span> usrs<span style="color:#f92672">);</span>
+                        usrs<span style="color:#f92672">.</span><span style="color:#a6e22e">clear</span><span style="color:#f92672">();</span>
+                    <span style="color:#f92672">}</span>
+                <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+                    T ext <span style="color:#f92672">=</span> getExtension<span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
+                    usrs<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>ext<span style="color:#f92672">);</span>
+                <span style="color:#f92672">}</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>usrs<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+            exts<span style="color:#f92672">.</span><span style="color:#a6e22e">addAll</span><span style="color:#f92672">(</span>usrs<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> exts<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>在方法的重载调用中，会将<code>URL</code>中<code>key</code>的值取出来，并以逗号分割成一个数组，然后会判断传入的值里面有没有<code>-default</code>配置，如果没有，就会调用前面分析过的<code>getExtensionClasses()</code>方法（该方法会调用到<code>loadClass()</code>方法，它里面的最后一个分支处理时，就有缓存配置名和对应的<code>@Activate</code>注解标注过的实现类的键值对到<code>cachedActivates</code>中），然后循环处理<code>cachedActivates</code>中的键值对。</p>
+<p>在处理<code>cachedActivates</code>中的键值对时，会取出<code>@Activate</code>注解的<code>group</code>参数信息进行比较，如果匹配上了，就会查找对应配置名的扩展实现（这里要注意一下匹配的方法<code>isMatchGroup()</code>，<code>group</code>参数为<code>null</code>或<code>@Activate</code>没有配置<code>group</code>参数时，都会返回<code>true</code>），然后再进一步判断<code>URL</code>参数中传入的配置名是否在<code>cachedActivates</code>中，是否有配置<code>-name</code>格式的配置名，<code>URL</code>中是否有对应配置名为参数的值（包括以<code>.配置名</code>结尾的参数的值，如果匹配到了就会返回<code>true</code>，同时，如果<code>@Activate</code>注解没有配置<code>value</code>参数，默认也会返回<code>true</code>；对于判断结果为<code>true</code>的配置名，会将刚刚查找到的扩展实现加入到<code>List</code>中（这个<code>List</code>是最终的返回结果），然后对列表按<code>ActivateComparator.COMPARATOR</code>定义的排序规则进行排序。</p>
+<p>接着，还会进一步对传入的配置名列表进行判断，只要传入的配置名不是以<code>-</code>开头，并且没有传入<code>-name</code>格式的配置名，就会查找该配置的扩展实现，并加入到一个<code>List</code>中，处理完之后，将这个<code>List</code>中的值全部添加到前面那个最终返回的<code>List</code>列表中。</p>
+<p>有点绕，简单点说，<code>getActivateExtension()</code>方法就是根据默认规则和配置的参数去判断需要返回哪些要激活的扩展实现，然后把激活的扩展列表返回给调用方。</p>
+<p><strong>这个方法的处理逻辑就是<code>Dubbo</code>框架对框架的自动激活的处理</strong>。</p>
+<p>到这里，我们把三个注解对应的三个处理方法都分析了一篇，同时清楚了<code>Dubbo</code>框架对扩展点所做的四种特性的处理，也清楚了<code>Dubbo</code>的<code>SPI</code>实现机制。</p>
+<p>接下来，就与前面分析过的<code>JDK</code>和<code>Spring</code>中的<code>SPI</code>实现比较一下。</p>
+<h4 id="0x02-与jdk和spring的spi的差异"><a href="#0x02-与jdk和spring的spi的差异" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 与JDK和Spring的SPI的差异</h4>
+<p><code>JDK</code>的<code>SPI</code>最简单直接，<code>Spring</code>的<code>SPI</code>实现也很简单清晰，只是在<code>JDK</code>实现的基础上，对资源文件文件名和内容的规范上做出了一些修改，同时，服务加载器中增加了一个方法。</p>
+<p>而<code>Dubbo</code>的<code>SPI</code>使用了三个注解来实现，并且，对整个<code>SPI</code>实现的处理流程有自己的规范，在<code>JDK</code>和<code>Spring</code>的实现基础上，增加了四种特性，并且在处理流程的每个级别上，能使用缓存的地方都使用了缓存，另外，还有内存动态编译等等，这些特性极大的提高了<code>Dubbo</code>框架的扩展性，尤其是在框架已经实现好的基础上，可以通过不修改代码，直接修改配置参数的方式来实现动态的装配不同的组件实现。</p>
+<p>三种实现各有优劣，功能强大就对应着实现的复杂性也更大，不同的场景有不同的选择，永远都是那句话：合适的才是最好的。</p>
+<p>接下来，我们看一下<code>Dubbo</code>中是如何使用<code>SPI</code>的。</p>
+<h4 id="0x03-dubbo中spi的应用"><a href="#0x03-dubbo中spi的应用" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 Dubbo中SPI的应用</h4>
+<p>其实上面的分析过程中，已经有多处使用了自身的<code>SPI</code>机制来加载扩展实现了。比如<code>ExtensionLoader</code>中的<code>objectFactory</code>属性的初始化，又比如动态编译生成的<code>$Adaptive</code>类的源代码时，查找<code>com.alibaba.dubbo.common.compiler.Compiler.class</code>服务的默认实现，这两个地方都是通过<code>Dubbo</code>自身的<code>SPI</code>机制来实现的。</p>
+<p>我们就以<code>Compiler.class</code>为例来看看如何使用<code>Dubbo</code>的<code>SPI</code>吧，这里只是一种基本的使用方式，更完整的使用方式，我们后续从其它角度分析<code>Dubbo</code>源码时再看。</p>
+<p>首先找到<code>Compiler.class</code>服务的定义：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Compiler. (SPI, Singleton, ThreadSafe)
+</span><span style="color:#75715e"> */</span>
+<span style="color:#a6e22e">@SPI</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;javassist&#34;</span><span style="color:#f92672">)</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Compiler</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Compile java source code.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param code        Java source code
+</span><span style="color:#75715e">     * @param classLoader classloader
+</span><span style="color:#75715e">     * @return Compiled class
+</span><span style="color:#75715e">     */</span>
+    Class<span style="color:#f92672">&lt;?&gt;</span> compile<span style="color:#f92672">(</span>String code<span style="color:#f92672">,</span> ClassLoader classLoader<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>该接口使用了<code>SPI</code>标注，并且<code>SPI</code>注解指定了参数值<code>javassist</code>。</p>
+<p>我们再看具体的实现：</p>
+<p><img src="/img/15929767639760.jpg" alt=""></p>
+<p>可以看到有三个具体的实现，分别是<code>AdaptiveCompiler</code>、<code>JavassistCompiler</code>和<code>JdkCompiler</code>，<code>AbstractCompiler</code>是抽象类，封装了通用逻辑，定义了<code>doCompile()</code>抽象方法，不是具体实现类。</p>
+<p>再找到资源文件：</p>
+<p><img src="/img/15929768911578.jpg" alt=""></p>
+<p>资源文件内容如下：</p>
+<pre><code class="language-properties" data-lang="properties">adaptive=com.alibaba.dubbo.common.compiler.support.AdaptiveCompiler
+jdk=com.alibaba.dubbo.common.compiler.support.JdkCompiler
+javassist=com.alibaba.dubbo.common.compiler.support.JavassistCompiler
+</code></pre><p>以键值对的形式配置了上面的三种实现。</p>
+<p>调用时的代码：<code>ExtensionLoader.getExtensionLoader(com.alibaba.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();</code></p>
+<p>前面已经分析过了<code>getAdaptiveExtension()</code>方法的逻辑，因为<code>Compiler.java</code>接口上已经指定了默认配置名，所以，<code>Dubbo</code>在加载<code>Compiler.class</code>服务时会去资源文件中查找<code>javassist</code>对应的实现，也就是<code>JavassistCompiler</code>实现。</p>
+<h4 id="0x04-基于spi实现dubbo扩展"><a href="#0x04-基于spi实现dubbo扩展" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x04 基于SPI实现Dubbo扩展</h4>
+<p>接下来，我们开始动手实现一个<code>Dubbo</code>的序列化扩展，基于<code>protostuff</code>的实现。</p>
+<p>首先找到<code>com.alibaba.dubbo.common.serialize.Serialization.class</code>服务的定义：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Serialization. (SPI, Singleton, ThreadSafe)
+</span><span style="color:#75715e"> */</span>
+<span style="color:#a6e22e">@SPI</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;hessian2&#34;</span><span style="color:#f92672">)</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Serialization</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * get content type id
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @return content type id
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">byte</span> <span style="color:#a6e22e">getContentTypeId</span><span style="color:#f92672">();</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * get content type
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @return content type
+</span><span style="color:#75715e">     */</span>
+    String <span style="color:#a6e22e">getContentType</span><span style="color:#f92672">();</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * create serializer
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param url
+</span><span style="color:#75715e">     * @param output
+</span><span style="color:#75715e">     * @return serializer
+</span><span style="color:#75715e">     * @throws IOException
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#a6e22e">@Adaptive</span>
+    ObjectOutput <span style="color:#a6e22e">serialize</span><span style="color:#f92672">(</span>URL url<span style="color:#f92672">,</span> OutputStream output<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException<span style="color:#f92672">;</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * create deserializer
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param url
+</span><span style="color:#75715e">     * @param input
+</span><span style="color:#75715e">     * @return deserializer
+</span><span style="color:#75715e">     * @throws IOException
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#a6e22e">@Adaptive</span>
+    ObjectInput <span style="color:#a6e22e">deserialize</span><span style="color:#f92672">(</span>URL url<span style="color:#f92672">,</span> InputStream input<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>该接口使用了<code>SPI</code>标注，并且<code>SPI</code>注解指定了参数值<code>hessian2</code>，也就是说<code>Dubbo</code>默认使用<code>hessian2</code>的实现来序列化对象，现在我们实现一个<code>protostuff</code>的实现，并通过实例来验证。</p>
+<p>首先是新建<code>dubbo-serialization-protostuff</code>工程，引入<code>dubbo-serialization-api</code>和<code>protostuff</code>相关的依赖，然后创建<code>ProtostuffSerialization</code>类，实现<code>com.alibaba.dubbo.common.serialize.Serialization</code>接口，具体代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-06-24.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ProtostuffSerialization</span> <span style="color:#66d9ef">implements</span> Serialization <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">byte</span> PROTOSTUFF_SERIALIZATION_ID <span style="color:#f92672">=</span> 12<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ProtostuffSerialization</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;protostuff serialization initialized&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">byte</span> <span style="color:#a6e22e">getContentTypeId</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> PROTOSTUFF_SERIALIZATION_ID<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getContentType</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;x-application/protostuff&#34;</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> ObjectOutput <span style="color:#a6e22e">serialize</span><span style="color:#f92672">(</span>URL url<span style="color:#f92672">,</span> OutputStream output<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> ProtostuffObjectOutput<span style="color:#f92672">(</span>output<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> ObjectInput <span style="color:#a6e22e">deserialize</span><span style="color:#f92672">(</span>URL url<span style="color:#f92672">,</span> InputStream input<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> ProtostuffObjectInput<span style="color:#f92672">(</span>input<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>其它相关的源文件请参考示例工程（这里的实现代码参考了<code>Dubbo 2.7.x</code>的<code>dubbo-serialization-protostuff</code>实现）。</p>
+<p>创建<code>META-INF/dubbo/com.alibaba.dubbo.common.serialize.Serialization</code>资源文件，内容如下：</p>
+<pre><code class="language-properties" data-lang="properties">protostuff=me.zy.std.dubbo.serialization.protostuff.ProtostuffSerialization
+</code></pre><p>然后新建一个<code>dubbo-spi-api</code>的接口工程，定义<code>EchoService</code>：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-06-24.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">EchoService</span> <span style="color:#f92672">{</span>
+
+    String <span style="color:#a6e22e">echo</span><span style="color:#f92672">(</span>String message<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>新建<code>dubbo-spi-provider</code>工程，实现服务接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-06-24.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EchoServiceImpl</span> <span style="color:#66d9ef">implements</span> EchoService <span style="color:#f92672">{</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">echo</span><span style="color:#f92672">(</span>String message<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        String now <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SimpleDateFormat<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;HH:mm:ss&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> Date<span style="color:#f92672">());</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;[&#34;</span> <span style="color:#f92672">+</span> now <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;] Hello &#34;</span> <span style="color:#f92672">+</span> message
+            <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;, request from consumer: &#34;</span> <span style="color:#f92672">+</span> RpcContext<span style="color:#f92672">.</span><span style="color:#a6e22e">getContext</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getRemoteAddress</span><span style="color:#f92672">());</span>
+        <span style="color:#66d9ef">return</span> message<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>并创建<code>EchoProvider</code>类：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-06-24.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EchoProvider</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
+        ServiceConfig<span style="color:#f92672">&lt;</span>EchoServiceImpl<span style="color:#f92672">&gt;</span> service <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ServiceConfig<span style="color:#f92672">&lt;&gt;();</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setInterface</span><span style="color:#f92672">(</span>EchoService<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setRef</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> EchoServiceImpl<span style="color:#f92672">());</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setApplication</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ApplicationConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;echo-provider&#34;</span><span style="color:#f92672">));</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setRegistry</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> RegistryConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;zookeeper://127.0.0.1:2181&#34;</span><span style="color:#f92672">));</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setSerialization</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;protostuff&#34;</span><span style="color:#f92672">);</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">export</span><span style="color:#f92672">();</span>
+
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dubbo service started&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">new</span> CountDownLatch<span style="color:#f92672">(</span>1<span style="color:#f92672">).</span><span style="color:#a6e22e">await</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>接下来，创建<code>dubbo-spi-consumer</code>工程，并创建<code>EchoConsumer</code>类：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang on 2020-06-24.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EchoConsumer</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        ReferenceConfig<span style="color:#f92672">&lt;</span>EchoService<span style="color:#f92672">&gt;</span> reference <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ReferenceConfig<span style="color:#f92672">&lt;&gt;();</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setApplication</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ApplicationConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;echo-service&#34;</span><span style="color:#f92672">));</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setRegistry</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> RegistryConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;zookeeper://127.0.0.1:2181&#34;</span><span style="color:#f92672">));</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setInterface</span><span style="color:#f92672">(</span>EchoService<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+        EchoService service <span style="color:#f92672">=</span> reference<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+        String message <span style="color:#f92672">=</span> service<span style="color:#f92672">.</span><span style="color:#a6e22e">echo</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dubbo&#34;</span><span style="color:#f92672">);</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>message<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>在运行示例之前，需要在父工程目录下执行<code>mvn install</code>将<code>dubbo-spi-api</code>包和<code>dubbo-serialization-protostuff</code>包安装到本地，然后启动<code>zookeeper</code>服务，注意版本（我使用的<code>Dubbo</code>版本为<code>2.6.8</code>，对应的<code>zookeeper</code>的版本为<code>3.4.x</code>）。</p>
+<p>准备工作完成后，先运行<code>EchoProvider</code>类，输出如下：</p>
+<pre><code class="language-log" data-lang="log">[24/06/20 11:28:52:052 CST] main  INFO logger.LoggerFactory: using logger: com.alibaba.dubbo.common.logger.log4j.Log4jLoggerAdapter
+[24/06/20 11:28:52:052 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/common/Version.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-common/2.6.8/dubbo-common-2.6.8.jar!/com/alibaba/dubbo/common/Version.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/common/Version.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:52:052 CST] main  WARN extension.SpringExtensionFactory:  [DUBBO] No spring extension (bean) named:defaultCompiler, try to find an extension (bean) of type java.lang.String, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:52:052 CST] main  WARN extension.SpringExtensionFactory:  [DUBBO] No spring extension (bean) named:defaultCompiler, type:java.lang.String found, stop get bean., dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main  INFO config.AbstractConfig:  [DUBBO] Export dubbo service me.zy.std.dubbo.spi.api.EchoService to local registry, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main  INFO config.AbstractConfig:  [DUBBO] Export dubbo service me.zy.std.dubbo.spi.api.EchoService to url dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;bind.ip=192.168.0.108&amp;bind.port=20880&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33333&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main  INFO config.AbstractConfig:  [DUBBO] Register dubbo service me.zy.std.dubbo.spi.api.EchoService url dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;bind.ip=192.168.0.108&amp;bind.port=20880&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33333&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112 to registry registry://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=echo-provider&amp;dubbo=2.0.2&amp;pid=56070&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33333&amp;registry=zookeeper&amp;timestamp=1593012533095, dubbo version: 2.6.8, current host: 192.168.0.108
+SLF4J: Failed to load class &quot;org.slf4j.impl.StaticLoggerBinder&quot;.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[24/06/20 11:28:53:053 CST] main  INFO server.Server:  [DUBBO] qos-server bind localhost:33333, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/exchange/Exchangers.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/exchange/Exchangers.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/exchange/Exchangers.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/Transporters.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/Transporters.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/Transporters.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/RemotingException.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/RemotingException.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/RemotingException.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:53:053 CST] main  INFO transport.AbstractServer:  [DUBBO] Start NettyServer bind /0.0.0.0:20880, export /192.168.0.108:20880, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:54:054 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Load registry store file /Users/unclezhao/.dubbo/dubbo-registry-echo-provider-127.0.0.1:2181.cache, data: {me.zy.std.dubbo.spi.api.EchoService=empty://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;category=configurators&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=55396&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593011993807, com.alibaba.dubbo.samples.echo.api.EchoService=empty://192.168.3.151:20880/com.alibaba.dubbo.samples.echo.api.EchoService?anyhost=true&amp;application=echo-provider&amp;bean.name=com.alibaba.dubbo.samples.echo.api.EchoService&amp;category=configurators&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=com.alibaba.dubbo.samples.echo.api.EchoService&amp;methods=echo&amp;pid=27439&amp;side=provider&amp;timestamp=1591923292603}, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:54:054 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Register: dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:54:054 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Subscribe: provider://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;category=configurators&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:28:54:054 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Notify urls for subscribe url provider://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;category=configurators&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112, urls: [empty://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;category=configurators&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112], dubbo version: 2.6.8, current host: 192.168.0.108
+dubbo service started
+</code></pre><p>再运行<code>EchoConsumer</code>类，输出如下：</p>
+<pre><code class="language-log" data-lang="log">/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/bin/java &quot;-javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=58442:/Applications/IntelliJ IDEA.app/Contents/bin&quot; -Dfile.encoding=UTF-8 -classpath /Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/charsets.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/deploy.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/cldrdata.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/dnsns.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/jaccess.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/jfxrt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/localedata.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/nashorn.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/sunec.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/sunjce_provider.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/sunpkcs11.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/ext/zipfs.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/javaws.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/jce.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/jfr.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/jfxswt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/jsse.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/management-agent.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/plugin.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/resources.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/jre/lib/rt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/ant-javafx.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/dt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/javafx-mx.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/jconsole.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/packager.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/sa-jdi.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_201.jdk/Contents/Home/lib/tools.jar:/Users/unclezhao/Raymond/work/workspaces/stdspaces/architecture-std/dubbo-spi-consumer/target/classes:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-context/5.2.3.RELEASE/spring-context-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-aop/5.2.3.RELEASE/spring-aop-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-beans/5.2.3.RELEASE/spring-beans-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-core/5.2.3.RELEASE/spring-core-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-jcl/5.2.3.RELEASE/spring-jcl-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/springframework/spring-expression/5.2.3.RELEASE/spring-expression-5.2.3.RELEASE.jar:/Users/unclezhao/.m2/repository/org/javassist/javassist/3.20.0-GA/javassist-3.20.0-GA.jar:/Users/unclezhao/.m2/repository/org/jboss/netty/netty/3.2.5.Final/netty-3.2.5.Final.jar:/Users/unclezhao/.m2/repository/org/apache/curator/curator-framework/2.12.0/curator-framework-2.12.0.jar:/Users/unclezhao/.m2/repository/org/apache/curator/curator-client/2.12.0/curator-client-2.12.0.jar:/Users/unclezhao/.m2/repository/org/apache/zookeeper/zookeeper/3.4.8/zookeeper-3.4.8.jar:/Users/unclezhao/.m2/repository/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar:/Users/unclezhao/.m2/repository/log4j/log4j/1.2.16/log4j-1.2.16.jar:/Users/unclezhao/.m2/repository/jline/jline/0.9.94/jline-0.9.94.jar:/Users/unclezhao/.m2/repository/com/google/guava/guava/16.0.1/guava-16.0.1.jar:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-netty4/2.6.8/dubbo-remoting-netty4-2.6.8.jar:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-common/2.6.8/dubbo-common-2.6.8.jar:/Users/unclezhao/.m2/repository/commons-logging/commons-logging/1.2/commons-logging-1.2.jar:/Users/unclezhao/.m2/repository/com/alibaba/hessian-lite/3.2.5/hessian-lite-3.2.5.jar:/Users/unclezhao/.m2/repository/com/alibaba/fastjson/1.2.60/fastjson-1.2.60.jar:/Users/unclezhao/.m2/repository/com/esotericsoftware/kryo/4.0.1/kryo-4.0.1.jar:/Users/unclezhao/.m2/repository/com/esotericsoftware/reflectasm/1.11.3/reflectasm-1.11.3.jar:/Users/unclezhao/.m2/repository/org/ow2/asm/asm/5.0.4/asm-5.0.4.jar:/Users/unclezhao/.m2/repository/com/esotericsoftware/minlog/1.3.0/minlog-1.3.0.jar:/Users/unclezhao/.m2/repository/org/objenesis/objenesis/2.5.1/objenesis-2.5.1.jar:/Users/unclezhao/.m2/repository/de/javakaffee/kryo-serializers/0.42/kryo-serializers-0.42.jar:/Users/unclezhao/.m2/repository/de/ruedigermoeller/fst/2.48-jdk-6/fst-2.48-jdk-6.jar:/Users/unclezhao/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.10.2/jackson-core-2.10.2.jar:/Users/unclezhao/.m2/repository/com/cedarsoftware/java-util/1.9.0/java-util-1.9.0.jar:/Users/unclezhao/.m2/repository/com/cedarsoftware/json-io/2.5.1/json-io-2.5.1.jar:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-serialization-api/2.6.8/dubbo-serialization-api-2.6.8.jar:/Users/unclezhao/.m2/repository/io/netty/netty-all/4.1.45.Final/netty-all-4.1.45.Final.jar:/Users/unclezhao/.m2/repository/io/protostuff/protostuff-core/1.7.2/protostuff-core-1.7.2.jar:/Users/unclezhao/.m2/repository/io/protostuff/protostuff-api/1.7.2/protostuff-api-1.7.2.jar:/Users/unclezhao/.m2/repository/io/protostuff/protostuff-runtime/1.7.2/protostuff-runtime-1.7.2.jar:/Users/unclezhao/.m2/repository/io/protostuff/protostuff-collectionschema/1.7.2/protostuff-collectionschema-1.7.2.jar:/Users/unclezhao/Raymond/work/workspaces/stdspaces/architecture-std/dubbo-serialization-protostuff/target/classes:/Users/unclezhao/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.8.6/jackson-core-2.8.6.jar:/Users/unclezhao/Raymond/work/workspaces/stdspaces/architecture-std/dubbo-spi-api/target/classes:/Users/unclezhao/.m2/repository/io/netty/netty-all/4.1.25.Final/netty-all-4.1.25.Final.jar me.zy.std.dubbo.spi.consumer.EchoConsumer
+[24/06/20 11:44:50:050 CST] main  INFO logger.LoggerFactory: using logger: com.alibaba.dubbo.common.logger.log4j.Log4jLoggerAdapter
+[24/06/20 11:44:50:050 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/common/Version.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-common/2.6.8/dubbo-common-2.6.8.jar!/com/alibaba/dubbo/common/Version.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/common/Version.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  WARN extension.SpringExtensionFactory:  [DUBBO] No spring extension (bean) named:defaultCompiler, try to find an extension (bean) of type java.lang.String, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  WARN extension.SpringExtensionFactory:  [DUBBO] No spring extension (bean) named:defaultCompiler, type:java.lang.String found, stop get bean., dubbo version: 2.6.8, current host: 192.168.0.108
+SLF4J: Failed to load class &quot;org.slf4j.impl.StaticLoggerBinder&quot;.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[24/06/20 11:44:50:050 CST] main  INFO server.Server:  [DUBBO] qos-server bind localhost:33332, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Load registry store file /Users/unclezhao/.dubbo/dubbo-registry-echo-service-127.0.0.1:2181.cache, data: {me.zy.std.dubbo.spi.api.EchoService=empty://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=configurators&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56089&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593012543817 empty://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56089&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593012543817 dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=56070&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593012533112}, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Register: consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=consumers&amp;check=false&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Subscribe: consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=providers,configurators,routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Notify urls for subscribe url consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=providers,configurators,routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, urls: [dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57093&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593013422447, empty://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=configurators&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, empty://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/exchange/Exchangers.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/exchange/Exchangers.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/exchange/Exchangers.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/Transporters.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/Transporters.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/Transporters.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:50:050 CST] main ERROR common.Version:  [DUBBO] Duplicate class com/alibaba/dubbo/remoting/RemotingException.class in 2 jar [file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo/2.6.8/dubbo-2.6.8.jar!/com/alibaba/dubbo/remoting/RemotingException.class, file:/Users/unclezhao/.m2/repository/com/alibaba/dubbo-remoting-api/2.6.8/dubbo-remoting-api-2.6.8.jar!/com/alibaba/dubbo/remoting/RemotingException.class], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] main  INFO transport.AbstractClient:  [DUBBO] Successed connect to server /192.168.0.108:20880 from NettyClient 192.168.0.108 using dubbo version 2.6.8, channel is NettyChannel [channel=[id: 0x8a287b71, L:/192.168.0.108:58449 - R:/192.168.0.108:20880]], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] main  INFO transport.AbstractClient:  [DUBBO] Start NettyClient /192.168.0.108 connect to the server /192.168.0.108:20880, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] main  INFO config.AbstractConfig:  [DUBBO] Refer dubbo service me.zy.std.dubbo.spi.api.EchoService from url zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?anyhost=true&amp;application=echo-service&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;register.ip=192.168.0.108&amp;remote.timestamp=1593013422447&amp;serialization=protostuff&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+protostuff serialization initialized
+dubbo
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO config.DubboShutdownHook:  [DUBBO] Run shutdown hook now., dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO support.AbstractRegistryFactory:  [DUBBO] Close all registries [zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=echo-service&amp;dubbo=2.0.2&amp;interface=com.alibaba.dubbo.registry.RegistryService&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;timestamp=1593013490516], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Destroy registry:zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=echo-service&amp;dubbo=2.0.2&amp;interface=com.alibaba.dubbo.registry.RegistryService&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;timestamp=1593013490516, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Unregister: consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=consumers&amp;check=false&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Destroy unregister url consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=consumers&amp;check=false&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Unsubscribe: consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=providers,configurators,routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO zookeeper.ZookeeperRegistry:  [DUBBO] Destroy unsubscribe url consumer://192.168.0.108/me.zy.std.dubbo.spi.api.EchoService?application=echo-service&amp;category=providers,configurators,routers&amp;dubbo=2.0.2&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO dubbo.DubboProtocol:  [DUBBO] Close dubbo connect: /192.168.0.108:58449--&gt;/192.168.0.108:20880, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO netty4.NettyChannel:  [DUBBO] Close netty channel [id: 0x8a287b71, L:/192.168.0.108:58449 - R:/192.168.0.108:20880], dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO dubbo.DubboProtocol:  [DUBBO] Close dubbo connect: 192.168.0.108:0--&gt;192.168.0.108:20880, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO dubbo.DubboProtocol:  [DUBBO] Destroy reference: dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-service&amp;check=false&amp;dubbo=2.0.2&amp;generic=false&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57176&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33332&amp;register.ip=192.168.0.108&amp;remote.timestamp=1593013422447&amp;serialization=protostuff&amp;side=consumer&amp;timestamp=1593013490461, dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboShutdownHook  INFO server.Server:  [DUBBO] qos-server stopped., dubbo version: 2.6.8, current host: 192.168.0.108
+
+Process finished with exit code 0
+</code></pre><p><code>EchoProvider</code>的日志输出增加了：</p>
+<pre><code class="language-log" data-lang="log">protostuff serialization initialized
+[23:44:51] Hello dubbo, request from consumer: /192.168.0.108:58449
+[24/06/20 11:44:51:051 CST] NettyServerWorker-5-1  WARN transport.AbstractServer:  [DUBBO] All clients has discontected from /192.168.0.108:20880. You can graceful shutdown now., dubbo version: 2.6.8, current host: 192.168.0.108
+[24/06/20 11:44:51:051 CST] DubboServerHandler-192.168.0.108:20880-thread-3  INFO dubbo.DubboProtocol:  [DUBBO] disconnected from /192.168.0.108:58449,url:dubbo://192.168.0.108:20880/me.zy.std.dubbo.spi.api.EchoService?anyhost=true&amp;application=echo-provider&amp;bind.ip=192.168.0.108&amp;bind.port=20880&amp;channel.readonly.sent=true&amp;codec=dubbo&amp;dubbo=2.0.2&amp;generic=false&amp;heartbeat=60000&amp;interface=me.zy.std.dubbo.spi.api.EchoService&amp;methods=echo&amp;pid=57093&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=33333&amp;serialization=protostuff&amp;side=provider&amp;timestamp=1593013422447, dubbo version: 2.6.8, current host: 192.168.0.108
+</code></pre><p>由此可见，我们新实现的基于<code>protostuff</code>的<code>Dubbo</code>序列化扩展可以正常工作了。</p>
+<h4 id="0x05-总结"><a href="#0x05-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x05 总结</h4>
+<p>至此，<code>Dubbo</code>的<code>SPI</code>实现就分析完成了，同时，也针对<code>JDK</code>的实现和<code>Spring</code>的实现进行了比较，并且，还动手基于<code>Dubbo</code>的<code>Serialization</code>扩展，实现了基于<code>protostuff</code>的扩展实现。</p>
+<p>在整个分析的过程中，我们清楚了<code>Dubbo</code>框架的整个扩展机制的规范，了解到了<code>SPI</code>、<code>Adaptive</code>和<code>Activate</code>三个注解的作用，通过分析服务加载器类<code>ExtensionLoader</code>的三个关键方法，明白了三个注解之间是如何协作来实现<code>Dubbo</code>扩展的四大特性的。</p>
+<p><code>Dubbo</code>的<code>SPI</code>是三者（<code>JDK</code>、<code>Spring</code>）中实现最复杂的，相对的，也是功能最强大，最灵活的。当然，<code>Dubbo</code>的<code>SPI</code>机制的规范还有一些细节这里没有覆盖到，我们后续针对<code>Dubbo</code>源码的其它分析会覆盖到。</p>
+<p>通过分析这些优秀的框架，我们可以受到很大的启发，比如，当我们需要实现一套框架时，就可以借鉴<code>Dubbo</code>的这种微内核+插件式的架构，这样可以保证框架有足够的扩展性（当然了，扩展性并不仅仅只是靠这一点来获得，合理的使用设计模式也是框架实现时保证扩展性的一种有效手段，以及贯穿面向对象设计的五大原则等等），借鉴并不是照搬，我们要吸取优秀的思想，再结合自己的需求进行裁剪和平衡做出合适的取舍。</p>
+<p><code>SPI</code>机制的分析到此就结束了，欢迎各种反馈和交流！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References</h5>
+<ol>
+<li><em><a href="https://github.com/apache/dubbo/tree/2.6.x" target="_blank" rel="noopener">Apache Dubbo</a></em></li>
+<li><em><a href="http://dubbo.apache.org/zh-cn/docs/dev/SPI.html" target="_blank" rel="noopener">Dubbo 文档</a></em></li>
+<li><em><a href="https://github.com/protostuff/protostuff" target="_blank" rel="noopener">Protostuff</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-dubbo-spi/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-dubbo-spi/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-spring-spi/" class="related-link">读源码学架构系列：SPI之Spring实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-jdk-spi/" class="related-link">读源码学架构系列：SPI之JDK实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/dubbo-export-refer-analysis/" class="related-link">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/totp-algorithm/" class="related-link">动态密码TOTP</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/microkernel/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>MicroKernel</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/dubbo/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>Dubbo</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/spi/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SPI</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-from-source-code-ood-solid/" rel="prev">&lt; 读源码学架构系列：面向对象设计的原则</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-spring-spi/" rel="next">读源码学架构系列：SPI之Spring实现 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

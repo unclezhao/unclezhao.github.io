@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：一致性哈希 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="TL;DR 本来今天计划把面向对象设计原则剩下的几条原则写一写的，结果一大早看了架构师训练营的……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/consistent-hash-algorithm/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-07-02T10:14:54+08:00",
+        "dateModified": "2020-07-17T09:51:00+08:00",
+        "url": "https://zhaoyang.me/posts/consistent-hash-algorithm/",
+        "headline": "读源码学架构系列：一致性哈希",
+        "description": "TL;DR 本来今天计划把面向对象设计原则剩下的几条原则写一写的，结果一大早看了架构师训练营的……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  5392 ,
+        "image": ["https://zhaoyang.me/img/15936731637623.jpg","https://zhaoyang.me/img/15937582400889.jpg","https://zhaoyang.me/img/15936731842647.jpg","https://zhaoyang.me/img/15936721628734.jpg","https://zhaoyang.me/img/15936839460542.jpg","https://zhaoyang.me/img/15936943267941.jpg","https://zhaoyang.me/img/15936948941296.jpg","https://zhaoyang.me/img/15942612887676.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：一致性哈希" />
+<meta property="og:description" content="TL;DR 本来今天计划把面向对象设计原则剩下的几条原则写一写的，结果一大早看了架构师训练营的……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/consistent-hash-algorithm/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15936731637623.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-07-02T10:14:54&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-17T09:51:00&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：一致性哈希</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-07-02T10:14:54&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.7.2</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/protocol/" class="category-link">protocol</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>TL;DR</p>
+<p>本来今天计划把面向对象设计原则剩下的几条原则写一写的，结果一大早看了架构师训练营的本周作业题：用你熟悉的编程语言实现一致性<code>hash</code>算法，并编写测试用例测试这个算法，测试<code>100</code>万<code>KV</code>数据，<code>10</code>个服务器节点的情况下，计算数据分布数量的标准差，评估算法的存储负载不均衡性。</p>
+<p>正好前阵子读协议的时候读过一致性哈希算法，正好，就着这个题目，可以深入的研究并实践一下了，于是，按耐不住内心的躁动，暂且先写这篇吧。</p>
+<p>以下是本文的大纲：</p>
+<ol>
+<li>什么是一致性哈希</li>
+<li>解决了什么问题</li>
+<li>动手实现一致性哈希</li>
+</ol>
+<p>以下是正文开始。</p>
+<h4 id="0x01-什么是一致性哈希"><a href="#0x01-什么是一致性哈希" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 什么是一致性哈希</h4>
+<p>维基百科上的定义：一致性哈希其实就是一种特殊的哈希算法。在使用一致哈希算法后，哈希表槽位数大小的改变平均只需要对$K/n$个关键字重新映射，其中$K$是关键字的数量，$n$是槽位的数量。然而在传统的哈希表中，添加或删除一个槽位几乎需要对所有关键字进行重新映射。</p>
+<p>这里的槽位你可以把它简单的想象成数组中的一个位置。</p>
+<p>上面的定义提到了传统的哈希表，也就是我们平时使用哈希的场景。比如，平常我们的哈希算法都是对服务器节点的数量或者是目标对象的数量之类的数值进行取模来计算哈希值，如下图所示：</p>
+<p><img src="/img/15936731637623.jpg" alt=""></p>
+<p>我们这里假定了有四台服务器，八个<code>key</code>值去映射取模，结果会均匀的分布到四台服务器的节点上。当我们增加一台服务器时，如下图示：</p>
+<p><img src="/img/15937582400889.jpg" alt=""></p>
+<p>因为节点的总数量发生了变化，所以会导致大量的<code>key</code>通过哈希函数取模的结果发生变化。同样，当有服务器发生故障下线时：</p>
+<p><img src="/img/15936731842647.jpg" alt=""></p>
+<p>同样的道理，也会导致大量的<code>key</code>通过哈希函数取模的结果发生变化。</p>
+<p>这个哈希函数对<code>key</code>的计算结果（也就是哈希值）发生了变化会导致怎样的影响呢？</p>
+<p>如果是在分布式缓存的场景下，大量的哈希值取模的结果变化直接会导致大量缓存无法命中（因为同样的的键被映射到了不同的服务器上，而缓存的值还在原来的服务器上），直接穿透到<code>DB</code>；同时原来缓存的值还在内存中，所以会浪费很多内存。</p>
+<p>如果是在负载均衡的场景下（假如是以用户<code>ID</code>为<code>key</code>），大量的哈希值取模的结果变化直接会导致大量用户新的请求会落到和之前不同的服务器上，如果正好你的应用会在服务器本地保存一些用户状态相关的数据的话，此时大量用户请求在新的服务器上，新的服务器又需要重新去获取或是计算来得到这些用户数据。（不过现在大多数情况下都会做无状态化设计，个别特殊的功能除外）</p>
+<p>无论是上面哪一种情况，结果都是不可接受的，因为在分布式场景下，服务的节点上线下线太平常不过了。一致性哈希就可以一定程序上来解决这些问题。</p>
+<h4 id="0x02-解决了什么问题"><a href="#0x02-解决了什么问题" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 解决了什么问题</h4>
+<p>一致性哈希是对$2^{32}$进行取模来计算哈希值的。准确的说，一致性哈希的值范围是$[0,2^{32}-1)$，每一个值可以理解为是一个槽位（<code>slot</code>）。</p>
+<p>取模操作会使这里计算的哈希值形成一个环（哈希值到达右边界之后，下一个值又会从左边界处的值开始，图形化表示时就类似一个环形），所以我们也把这种哈希算法称为哈希环。</p>
+<p>哈希环的空间是按顺时针方向组织的，我们可以通过计算哈希算法的值来将节点映射到哈希环上：</p>
+<p><img src="/img/15936721628734.jpg" alt=""></p>
+<p>上图就把三个节点（用蓝色小圆圈表示）映射到了哈希环上，当需要对某个指定的<code>key</code>读写的时候，一般分为两步来操作：</p>
+<ul>
+<li>第一步会将<code>key</code>作为参数通过哈希函数来计算哈希值，以此来确定这个<code>key</code>在哈希环上的位置；</li>
+<li>第二步是从这个计算出来的位置以顺时针方向沿哈希环行走，遇到的第一个节点就是<code>key</code>对应的节点；</li>
+</ul>
+<p>如下图所示：</p>
+<p><img src="/img/15936839460542.jpg" alt=""></p>
+<p>从上面，我们可以看到，确定一个<code>key</code>在哈希环的位置是通过哈希函数来计算的，所以这个哈希函数就是一致性哈希的核心。</p>
+<p>还有一种情况，有时候，我们的节点数量比较少的时候，通过哈希函数将节点映射到哈希环上之后，当有大量的<code>key</code>进行哈希时，可能会出现大部分的哈希值通过哈希环所计算出来的节点比较集中在某个节点上，为了解决这个问题，有人就引入了虚拟节点的概念：</p>
+<p><img src="/img/15936943267941.jpg" alt="-w541"></p>
+<p>如上图所示，我们将前面第一张图中的三个节点，分别给每个节点映射成三个虚拟节点，这样，整个哈希环上就有了九个节点，相比较三个节点而言，九个节点（尽管最终还是映射到三个真实的节点）会让整个分布变得更加的均匀（均匀是相对的）。（还有一种做法是将真实的节点和虚拟节点一起映射到哈希环上）</p>
+<p>另外，前面讲到了传统哈希方式在分布式环境下的会带来大量数据迁移的问题，那一致性哈希如果解决这个问题呢？这一点维基百科中已经说明了：</p>
+<blockquote>
+<p>当删除一台节点机器时，这台机器上保存的所有对象都要移动到下一台机器。添加一台机器到圆环边上某个点时，这个点的下一台机器需要将这个节点前对应的对象移动到新机器上。 更改对象在节点机器上的分布可以通过调整节点机器的位置来实现。</p>
+</blockquote>
+<p>可以看到，无论是节点上线还是下线，只需要移动极小的一部分数据即可，尤其是与传统的哈希方式相比，一致性哈希带来的收益是非常可观的。</p>
+<p>对于哈希函数，我们需要关注哪些呢？</p>
+<p>我们用哈希函数来对<code>key</code>求值，然后到哈希环上所查找映射的节点，所以我们需要哈希值的均匀程度；再者，哈希算法本身会有一个哈希碰撞的问题，这个碰撞率当然是越低越好；最后就是关注性能了，根据不同的使用场景，优先考虑需求的情况下再考虑较好的性能，不同哈希算法的算法复杂度也不一样。</p>
+<p>关于哈希函数的算法实现，根据不同的使用场景，维基百科上列出了几十种。</p>
+<h4 id="0x03-动手实现一致性哈希"><a href="#0x03-动手实现一致性哈希" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 动手实现一致性哈希</h4>
+<p>现在来解决本篇开头的那道题。</p>
+<p>在<code>Guava</code>中的哈希函数的实现列表如下：</p>
+<p><img src="/img/15936948941296.jpg" alt="-w786"></p>
+<p>在负载均衡的场景下，哈希函数需要高性能、低碰撞率的特点，后来看到上图表格中的推荐实现中有两个<code>murmur3</code>的实现，于是就去搜索了一下，搜索完发现这个<code>MurmurHash</code>算法很不错，它是一种非密码学的哈希函数，相对来说性能比较好，安全性比较低，而且它还有碰撞率低的特点，正适合负载均衡这种场景；而且，在<code>Jedis</code>、<code>Memcached</code>、<code>Cassandra</code>等等这些项目中都使用的是它。<code>MurmurHash</code>发展到现在已经是第三版了，上图中实现的就是第三版的算法。</p>
+<p>下面的代码是<code>Jedis</code>中<code>MurmurHash</code>的实现（我看的是<code>Jedis 3.3.0</code>的版本，实现的好像是<code>MurmurHash2</code>）：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">  <span style="color:#75715e">/**
+</span><span style="color:#75715e">   * Hashes the bytes in a buffer from the current position to the limit.
+</span><span style="color:#75715e">   * @param buf The bytes to hash.
+</span><span style="color:#75715e">   * @param seed The seed for the hash.
+</span><span style="color:#75715e">   * @return The 32 bit murmur hash of the bytes in the buffer.
+</span><span style="color:#75715e">   */</span>
+  <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>ByteBuffer buf<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> seed<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+    <span style="color:#75715e">// save byte order for later restoration
+</span><span style="color:#75715e"></span>    ByteOrder byteOrder <span style="color:#f92672">=</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">();</span>
+    buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>ByteOrder<span style="color:#f92672">.</span><span style="color:#a6e22e">LITTLE_ENDIAN</span><span style="color:#f92672">);</span>
+
+    <span style="color:#66d9ef">int</span> m <span style="color:#f92672">=</span> 0x5bd1e995<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">int</span> r <span style="color:#f92672">=</span> 24<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">int</span> h <span style="color:#f92672">=</span> seed <span style="color:#f92672">^</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">();</span>
+
+    <span style="color:#66d9ef">int</span> k<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;=</span> 4<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      k <span style="color:#f92672">=</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">getInt</span><span style="color:#f92672">();</span>
+
+      k <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+      k <span style="color:#f92672">^=</span> k <span style="color:#f92672">&gt;&gt;&gt;</span> r<span style="color:#f92672">;</span>
+      k <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+
+      h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+      h <span style="color:#f92672">^=</span> k<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+      ByteBuffer finish <span style="color:#f92672">=</span> ByteBuffer<span style="color:#f92672">.</span><span style="color:#a6e22e">allocate</span><span style="color:#f92672">(</span>4<span style="color:#f92672">).</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>ByteOrder<span style="color:#f92672">.</span><span style="color:#a6e22e">LITTLE_ENDIAN</span><span style="color:#f92672">);</span>
+      <span style="color:#75715e">// for big-endian version, use this first:
+</span><span style="color:#75715e"></span>      <span style="color:#75715e">// finish.position(4-buf.remaining());
+</span><span style="color:#75715e"></span>      finish<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>buf<span style="color:#f92672">).</span><span style="color:#a6e22e">rewind</span><span style="color:#f92672">();</span>
+      h <span style="color:#f92672">^=</span> finish<span style="color:#f92672">.</span><span style="color:#a6e22e">getInt</span><span style="color:#f92672">();</span>
+      h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    h <span style="color:#f92672">^=</span> h <span style="color:#f92672">&gt;&gt;&gt;</span> 13<span style="color:#f92672">;</span>
+    h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+    h <span style="color:#f92672">^=</span> h <span style="color:#f92672">&gt;&gt;&gt;</span> 15<span style="color:#f92672">;</span>
+
+    buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>byteOrder<span style="color:#f92672">);</span>
+    <span style="color:#66d9ef">return</span> h<span style="color:#f92672">;</span>
+  <span style="color:#f92672">}</span>
+</code></pre></div><p>我会先用<code>Jedis</code>实现的<code>MurmurHash2</code>来实现解决问题的代码，分别以不加入虚拟节点、<code>10</code>个虚拟节点和<code>20</code>个虚拟节点来分别测试<code>KV</code>数据的分布情况和标准差。</p>
+<p>后面可以加入其它的一致性哈希算法的实现来进行比较。</p>
+<p>首先，声明一个哈希函数的接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">HashFunction</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Calculate input key&#39;s hash value.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param key key for calculated
+</span><span style="color:#75715e">     * @return hash value
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>String key<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>我们只关注给定一个指定的<code>key</code>，返回哈希函数计算后的哈希值，所以只需要声明一个方法。</p>
+<p>基于<code>Jedis</code>的<code>MurmurHash2</code>的实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MurmurHash2Function</span> <span style="color:#66d9ef">implements</span> HashFunction <span style="color:#f92672">{</span>
+
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Jedis&#39;s implement for MurmurHash2.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param key key for calculated
+</span><span style="color:#75715e">     * @return hash value
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>String key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        ByteBuffer buf <span style="color:#f92672">=</span> ByteBuffer<span style="color:#f92672">.</span><span style="color:#a6e22e">wrap</span><span style="color:#f92672">(</span>key<span style="color:#f92672">.</span><span style="color:#a6e22e">getBytes</span><span style="color:#f92672">());</span>
+        <span style="color:#66d9ef">int</span> seed <span style="color:#f92672">=</span> 0x1234ABCD<span style="color:#f92672">;</span>
+
+        ByteOrder byteOrder <span style="color:#f92672">=</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">();</span>
+        buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>ByteOrder<span style="color:#f92672">.</span><span style="color:#a6e22e">LITTLE_ENDIAN</span><span style="color:#f92672">);</span>
+
+        <span style="color:#66d9ef">long</span> m <span style="color:#f92672">=</span> 0xc6a4a7935bd1e995L<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">int</span> r <span style="color:#f92672">=</span> 47<span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">long</span> h <span style="color:#f92672">=</span> seed <span style="color:#f92672">^</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">()</span> <span style="color:#f92672">*</span> m<span style="color:#f92672">);</span>
+
+        <span style="color:#66d9ef">long</span> k<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;=</span> 8<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            k <span style="color:#f92672">=</span> buf<span style="color:#f92672">.</span><span style="color:#a6e22e">getLong</span><span style="color:#f92672">();</span>
+
+            k <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+            k <span style="color:#f92672">^=</span> k <span style="color:#f92672">&gt;&gt;&gt;</span> r<span style="color:#f92672">;</span>
+            k <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+
+            h <span style="color:#f92672">^=</span> k<span style="color:#f92672">;</span>
+            h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>buf<span style="color:#f92672">.</span><span style="color:#a6e22e">remaining</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            ByteBuffer finish <span style="color:#f92672">=</span> ByteBuffer<span style="color:#f92672">.</span><span style="color:#a6e22e">allocate</span><span style="color:#f92672">(</span>8<span style="color:#f92672">).</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>
+                ByteOrder<span style="color:#f92672">.</span><span style="color:#a6e22e">LITTLE_ENDIAN</span><span style="color:#f92672">);</span>
+            <span style="color:#75715e">// for big-endian version, do this first:
+</span><span style="color:#75715e"></span>            <span style="color:#75715e">// finish.position(8-buf.remaining());
+</span><span style="color:#75715e"></span>            finish<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>buf<span style="color:#f92672">).</span><span style="color:#a6e22e">rewind</span><span style="color:#f92672">();</span>
+            h <span style="color:#f92672">^=</span> finish<span style="color:#f92672">.</span><span style="color:#a6e22e">getLong</span><span style="color:#f92672">();</span>
+            h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+
+        h <span style="color:#f92672">^=</span> h <span style="color:#f92672">&gt;&gt;&gt;</span> r<span style="color:#f92672">;</span>
+        h <span style="color:#f92672">*=</span> m<span style="color:#f92672">;</span>
+        h <span style="color:#f92672">^=</span> h <span style="color:#f92672">&gt;&gt;&gt;</span> r<span style="color:#f92672">;</span>
+
+        buf<span style="color:#f92672">.</span><span style="color:#a6e22e">order</span><span style="color:#f92672">(</span>byteOrder<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> h<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>KV</code>数据抽象为下面的接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">KvData</span><span style="color:#f92672">&lt;</span>K<span style="color:#f92672">,</span>V<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * KV data&#39;s key, it can be use to do mapping operation with hash ring.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @return kv data&#39;s key
+</span><span style="color:#75715e">     */</span>
+    K <span style="color:#a6e22e">key</span><span style="color:#f92672">();</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * KV data&#39;s value.
+</span><span style="color:#75715e">     * because we don&#39;t concern about this value in the question,
+</span><span style="color:#75715e">     * so implement by default with return null value.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @return kv data&#39;s value
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">default</span> V <span style="color:#a6e22e">value</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>问题只需要知道<code>KV</code>数据的分布和分布数量的标准差，不需要关注<code>KV</code>数据的<code>value</code>，所以接口中直接以默认的<code>value()</code>方法实现。</p>
+<p>题目中指定了是<code>10</code>台服务器，对于服务器节点，我们只需要关注它的唯一标识的<code>key</code>即可，所以抽象为如下接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ServerNode</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Server node identify key for mapping to hash ring
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @return node key value
+</span><span style="color:#75715e">     */</span>
+    String <span style="color:#a6e22e">nodeKey</span><span style="color:#f92672">();</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>核心的接口已经齐了，需要编码实现一致性哈希的映射类了，代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConsistentHashMapper</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> HashFunction hashFunction<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> virtualNodeNum<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> hashRing <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">&lt;&gt;();</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ConsistentHashMapper</span><span style="color:#f92672">(</span>HashFunction hashFunction<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">(</span>hashFunction<span style="color:#f92672">,</span> 0<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ConsistentHashMapper</span><span style="color:#f92672">(</span>HashFunction hashFunction<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> virtualNodeNum<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>virtualNodeNum <span style="color:#f92672">&lt;</span> 0 <span style="color:#f92672">||</span> virtualNodeNum <span style="color:#f92672">&gt;</span> 1000<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;virtual node number must between 0 and 1000&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">hashFunction</span> <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">virtualNodeNum</span> <span style="color:#f92672">=</span> virtualNodeNum<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Mapping kvData&#39;s key to hash ring,
+</span><span style="color:#75715e">     * and return the mapped ServerNode.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param nodeList ServerNode list
+</span><span style="color:#75715e">     * @param kvData KvData for mapping
+</span><span style="color:#75715e">     * @return ServerNode mapped by kvData
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> ServerNode <span style="color:#a6e22e">mapping</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList<span style="color:#f92672">,</span> KvData<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> kvData<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>nodeList <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> nodeList<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;node list can not be null or empty&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>kvData <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> kvData<span style="color:#f92672">.</span><span style="color:#a6e22e">key</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>kvData<span style="color:#f92672">.</span><span style="color:#a6e22e">key</span><span style="color:#f92672">()))</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;kvData&#39;s hashKey is null or empty&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">long</span> hashValue <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>kvData<span style="color:#f92672">.</span><span style="color:#a6e22e">key</span><span style="color:#f92672">());</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>hashRing <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> hashRing<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+            hashRing <span style="color:#f92672">=</span> buildHashRing<span style="color:#f92672">(</span>nodeList<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> locate<span style="color:#f92672">(</span>hashRing<span style="color:#f92672">,</span> hashValue<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Addressing for hashValue in hash ring, return the first mapped ServerNode.
+</span><span style="color:#75715e">     * if not mapped util to the end, return the first ServerNode in the hash ring.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param hashRing hash ring with mapped ServerNode list
+</span><span style="color:#75715e">     * @param hashValue hash value need to addressing
+</span><span style="color:#75715e">     * @return ServerNode
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> ServerNode <span style="color:#a6e22e">locate</span><span style="color:#f92672">(</span>TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> hashRing<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> hashValue<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        Map<span style="color:#f92672">.</span><span style="color:#a6e22e">Entry</span><span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> entry <span style="color:#f92672">=</span> hashRing<span style="color:#f92672">.</span><span style="color:#a6e22e">ceilingEntry</span><span style="color:#f92672">(</span>hashValue<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>entry <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            entry <span style="color:#f92672">=</span> hashRing<span style="color:#f92672">.</span><span style="color:#a6e22e">firstEntry</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> entry<span style="color:#f92672">.</span><span style="color:#a6e22e">getValue</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Build the hash ring with input ServerNode list if hash ring not be built.
+</span><span style="color:#75715e">     * If #{code virtualNodeNum} larger than zero, the hash ring will build with virtual nodes.
+</span><span style="color:#75715e">     * The result is a TreeMap&lt;Long, ServerNode&gt;,
+</span><span style="color:#75715e">     * the map key is ServerNode&#39;s #{code HashFunction.hash(ServerNode.nodeKey())},
+</span><span style="color:#75715e">     * and the map value is ServerNode.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param nodeList ServerNode list
+</span><span style="color:#75715e">     * @return ServerNode mapping info map
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">buildHashRing</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> virtualNodeMap <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">&lt;&gt;();</span>
+        <span style="color:#75715e">// no virtual node number set, just add real node
+</span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>virtualNodeNum <span style="color:#f92672">&lt;=</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            addRealNodes<span style="color:#f92672">(</span>virtualNodeMap<span style="color:#f92672">,</span> nodeList<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+            addVirtualNodes<span style="color:#f92672">(</span>virtualNodeMap<span style="color:#f92672">,</span> nodeList<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> virtualNodeMap<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addRealNodes</span><span style="color:#f92672">(</span>TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> virtualNodeMap<span style="color:#f92672">,</span> List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>ServerNode node <span style="color:#f92672">:</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            virtualNodeMap<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">nodeKey</span><span style="color:#f92672">()),</span> node<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addVirtualNodes</span><span style="color:#f92672">(</span>TreeMap<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">,</span> ServerNode<span style="color:#f92672">&gt;</span> virtualNodeMap<span style="color:#f92672">,</span> List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>ServerNode node <span style="color:#f92672">:</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> virtualNodeNum<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+                <span style="color:#75715e">// all mapped node is virtual node
+</span><span style="color:#75715e"></span>                virtualNodeMap<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">nodeKey</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> String<span style="color:#f92672">.</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;%03d&#34;</span><span style="color:#f92672">,</span> i<span style="color:#f92672">)),</span> node<span style="color:#f92672">);</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>前面说了，我们会对每种哈希函数的实现进行多组测试，所以<code>ConsistentHashMapper</code>有一个<code>virtualNodeNum</code>属性，用于指定虚拟节点的数量，默认为<code>0</code>表示全部映射真实的节点。（我这里限定了一个<code>virtualNodeNum</code>值的范围为<code>0~1000</code>）</p>
+<p>哈希函数和虚拟节点的数量是通过<code>ConsistentHashMapper</code>类的构造函数来指定的。</p>
+<p><code>ConsistentHashMapper#mapper()</code>方法接受两个参数：服务器节点的列表，以及要寻址的<code>KV</code>数据，返回的结果就是映射到的服务节点。</p>
+<p>另外，需要计算标准差，所以增加了<code>StatisticUtils</code>类实现标准关的计算：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">StatisticUtils</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Standard Deviation algorithm
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param dataArr data array
+</span><span style="color:#75715e">     * @return standard deviation result
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">stdev</span><span style="color:#f92672">(</span>Long<span style="color:#f92672">[]</span> dataArr<span style="color:#f92672">){</span>
+        <span style="color:#66d9ef">double</span> sum <span style="color:#f92672">=</span> 0<span style="color:#f92672">.</span><span style="color:#a6e22e">0</span><span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">double</span> mean <span style="color:#f92672">=</span> 0<span style="color:#f92672">.</span><span style="color:#a6e22e">0</span><span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">double</span> num <span style="color:#f92672">=</span> 0<span style="color:#f92672">.</span><span style="color:#a6e22e">0</span><span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">double</span> numi <span style="color:#f92672">=</span> 0<span style="color:#f92672">.</span><span style="color:#a6e22e">0</span><span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> i <span style="color:#f92672">:</span> dataArr<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            sum<span style="color:#f92672">+=</span>i<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        mean <span style="color:#f92672">=</span> sum<span style="color:#f92672">/</span>dataArr<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> i <span style="color:#f92672">:</span> dataArr<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            numi <span style="color:#f92672">=</span> Math<span style="color:#f92672">.</span><span style="color:#a6e22e">pow</span><span style="color:#f92672">(((</span><span style="color:#66d9ef">double</span><span style="color:#f92672">)</span> i <span style="color:#f92672">-</span> mean<span style="color:#f92672">),</span> 2<span style="color:#f92672">.</span><span style="color:#a6e22e">0D</span><span style="color:#f92672">);</span>
+            num<span style="color:#f92672">+=</span>numi<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+
+        <span style="color:#66d9ef">return</span> Math<span style="color:#f92672">.</span><span style="color:#a6e22e">sqrt</span><span style="color:#f92672">(</span>num<span style="color:#f92672">/</span>dataArr<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>剩下就是测试用例了：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TestConsistentHashMapper</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Mock ServerNode list
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList <span style="color:#f92672">=</span> Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">asList</span><span style="color:#f92672">(</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server01&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server02&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server03&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server04&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server05&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server06&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server07&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server08&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server09&#34;</span><span style="color:#f92672">),</span>
+        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> newServerNodeKey<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server10&#34;</span><span style="color:#f92672">)</span>
+    <span style="color:#f92672">);</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> String <span style="color:#a6e22e">newServerNodeKey</span><span style="color:#f92672">(</span>String name<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        assertNotNull<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server name can not be null&#34;</span><span style="color:#f92672">,</span> name<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> name<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">initStatisticMap</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;</span>ServerNode<span style="color:#f92672">&gt;</span> nodeList<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> statisticMap<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">for</span><span style="color:#f92672">(</span>ServerNode node <span style="color:#f92672">:</span> nodeList<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            statisticMap<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">nodeKey</span><span style="color:#f92672">(),</span> 0L<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">////  test MurmurHash2 start  ////
+</span><span style="color:#75715e"></span>
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2WithoutVirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with no virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">());</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With10VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 10 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 10<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With30VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 30 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 30<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With50VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 50 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 50<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With80VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 80 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 80<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With100VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 100 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 100<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With200VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 200 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 200<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With500VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 500 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 500<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With800VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 800 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 800<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testMurmurHash2With1000VirtualNode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;MurmurHash2 with 1000 virtual node: &#34;</span><span style="color:#f92672">);</span>
+        ConsistentHashMapper hashMapper <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConsistentHashMapper<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> MurmurHash2Function<span style="color:#f92672">(),</span> 1000<span style="color:#f92672">);</span>
+        process<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">////  test MurmurHash2 end  ////
+</span><span style="color:#75715e"></span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">process</span><span style="color:#f92672">(</span>ConsistentHashMapper hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> statisticMap<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        initStatisticMap<span style="color:#f92672">(</span>nodeList<span style="color:#f92672">,</span> statisticMap<span style="color:#f92672">);</span>
+        processMappingWithLoop<span style="color:#f92672">(</span>hashMapper<span style="color:#f92672">,</span> statisticMap<span style="color:#f92672">,</span> 1000000<span style="color:#f92672">);</span>
+        prettyPrintStatisticMap<span style="color:#f92672">(</span>statisticMap<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">processMappingWithLoop</span><span style="color:#f92672">(</span>ConsistentHashMapper hashMapper<span style="color:#f92672">,</span> AtomicLongMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> statisticMap<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> timesOfLoop<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> timesOfLoop<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+            ServerNode node <span style="color:#f92672">=</span> hashMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">mapping</span><span style="color:#f92672">(</span>nodeList<span style="color:#f92672">,</span> <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> UUID<span style="color:#f92672">.</span><span style="color:#a6e22e">randomUUID</span><span style="color:#f92672">().</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">().</span><span style="color:#a6e22e">replaceAll</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;-&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">));</span>
+            statisticMap<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndIncrement</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">nodeKey</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">prettyPrintStatisticMap</span><span style="color:#f92672">(</span>AtomicLongMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> statisticMap<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        statisticMap<span style="color:#f92672">.</span><span style="color:#a6e22e">asMap</span><span style="color:#f92672">().</span><span style="color:#a6e22e">entrySet</span><span style="color:#f92672">().</span><span style="color:#a6e22e">stream</span><span style="color:#f92672">().</span><span style="color:#a6e22e">sorted</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">.</span><span style="color:#a6e22e">Entry</span><span style="color:#f92672">.</span><span style="color:#a6e22e">comparingByValue</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">::</span>println<span style="color:#f92672">);</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">print</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Standard Deviation: &#34;</span><span style="color:#f92672">);</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>StatisticUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">stdev</span><span style="color:#f92672">(</span>statisticMap<span style="color:#f92672">.</span><span style="color:#a6e22e">asMap</span><span style="color:#f92672">().</span><span style="color:#a6e22e">values</span><span style="color:#f92672">().</span><span style="color:#a6e22e">toArray</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> Long<span style="color:#f92672">[]{})));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\n&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>输出结果如下：</p>
+<pre><code class="language-log" data-lang="log">MurmurHash2 with no virtual node: 
+server07=19330
+server10=24227
+server05=27170
+server03=47946
+server01=60284
+server06=85404
+server04=132435
+server08=150064
+server02=200011
+server09=253129
+Standard Deviation: 76852.16470601202
+
+MurmurHash2 with 10 virtual node: 
+server06=46931
+server01=61209
+server10=70729
+server08=77613
+server02=78922
+server04=97173
+server09=110561
+server05=121380
+server03=151153
+server07=184329
+Standard Deviation: 40531.410579944044
+
+MurmurHash2 with 30 virtual node: 
+server02=61015
+server10=74404
+server03=87075
+server09=98883
+server08=104283
+server06=107033
+server04=110190
+server07=111261
+server01=116286
+server05=129570
+Standard Deviation: 19445.72150885639
+
+MurmurHash2 with 50 virtual node: 
+server10=78045
+server05=84007
+server03=86165
+server08=95638
+server02=96407
+server09=99109
+server01=108940
+server07=111621
+server04=119266
+server06=120802
+Standard Deviation: 14074.121905113654
+
+MurmurHash2 with 80 virtual node: 
+server10=72738
+server02=79641
+server09=92611
+server03=93406
+server08=95787
+server05=97055
+server06=108303
+server01=110413
+server04=124253
+server07=125793
+Standard Deviation: 16471.37915294284
+
+MurmurHash2 with 100 virtual node: 
+server10=79154
+server02=88888
+server08=90075
+server03=95174
+server05=98625
+server06=103063
+server09=103299
+server04=109429
+server01=110451
+server07=121842
+Standard Deviation: 11735.359227565214
+
+MurmurHash2 with 200 virtual node: 
+server10=89203
+server02=91204
+server03=97569
+server04=99208
+server01=100367
+server07=101756
+server09=102103
+server08=105518
+server06=105586
+server05=107486
+Standard Deviation: 5708.017168859954
+
+MurmurHash2 with 500 virtual node: 
+server10=93869
+server02=94568
+server05=97026
+server04=98421
+server09=99816
+server07=101706
+server03=101958
+server08=104029
+server01=104300
+server06=104307
+Standard Deviation: 3721.3552370070774
+
+MurmurHash2 with 800 virtual node: 
+server02=92880
+server05=95670
+server07=98301
+server06=98309
+server08=99432
+server01=100134
+server10=100506
+server04=101773
+server03=104119
+server09=108876
+Standard Deviation: 4179.462453474131
+
+MurmurHash2 with 1000 virtual node: 
+server02=95820
+server05=96008
+server01=97176
+server08=97304
+server06=100933
+server10=100962
+server07=101764
+server04=102557
+server03=102675
+server09=104801
+Standard Deviation: 3005.045091175838
+</code></pre><p>上面的输出结果中，我把每组测试中，每个节点所映射到的<code>KV</code>的数量按从小到大的顺序进行了输出，这样可以方便看最大值与最小值之间的差距。</p>
+<p>从由面的测试结果可以看出：<strong>增加虚拟节点可以有效的提升<code>MurmurHash2</code>实现的哈希函数的分布的均匀性</strong>。尤其是上面虚拟节点为<code>1000</code>时，<code>10</code>个节点的分布已经很均匀了（在<code>+/-0.005</code>之间）。</p>
+<p>测试结果的标准差：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>test group</th>
+<th>Standard Deviation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MurmurHash2 no virtual node</td>
+<td>76852.16470601202</td>
+</tr>
+<tr>
+<td>MurmurHash2 10 virtual node</td>
+<td>40531.410579944044</td>
+</tr>
+<tr>
+<td>MurmurHash2 30 virtual node</td>
+<td>19445.72150885639</td>
+</tr>
+<tr>
+<td>MurmurHash2 50 virtual node</td>
+<td>14074.121905113654</td>
+</tr>
+<tr>
+<td>MurmurHash2 80 virtual node</td>
+<td>16471.37915294284</td>
+</tr>
+<tr>
+<td>MurmurHash2 100 virtual node</td>
+<td>11735.359227565214</td>
+</tr>
+<tr>
+<td>MurmurHash2 200 virtual node</td>
+<td>5708.017168859954</td>
+</tr>
+<tr>
+<td>MurmurHash2 500 virtual node</td>
+<td>3721.3552370070774</td>
+</tr>
+<tr>
+<td>MurmurHash2 800 virtual node</td>
+<td>4179.462453474131</td>
+</tr>
+<tr>
+<td>MurmurHash2 1000 virtual node</td>
+<td>3005.045091175838</td>
+</tr>
+</tbody>
+</table></div>
+<p>标准差的结果越低表示效果越好。下图为标准差的拆线图，横轴为节点数量，纵轴为标准差的值：</p>
+<p><img src="/img/15942612887676.jpg" alt=""></p>
+<p>在示例代码中，还增加了<code>Md5</code>、<code>sha256</code>、<code>MurmurHash3</code>等不同的实现。</p>
+<h4 id="0x04-总结"><a href="#0x04-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x04 总结</h4>
+<p>本篇通过一道题目来深入了解了一致性哈希。</p>
+<p>一致性哈希在分布式环境下使用非常广泛，不同的场景使用的哈希函数的实现也各不相同。对于一个哈希函数，我们主要关注以下几点：</p>
+<ol>
+<li>算法的复杂度（时间、空间）</li>
+<li>哈希值的分布均匀情况</li>
+<li>哈希碰撞的概率</li>
+</ol>
+<p>选择哈希函数，以及实现一致性哈希需要结合具体的业务场景。</p>
+<p>比如，<code>Guava</code>中的<code>Hashing#consistentHash()</code>实现在减少桶（<code>bucket</code>）的数量后，会导致所有的映射发生偏移，在某些场景下是无法接受的。</p>
+<p>再比如，上面的<code>MurmurHash2Function</code>实现中，现在是直接将结果（<code>h</code>）返回，但是，如果返回的<code>h &amp; 0xffffffffL</code>，在增加虚拟节点的情况下，映射的分布要比直接返回结果均匀很多。</p>
+<p>服务器节点的标识<code>key</code>、数据的<code>key</code>的设计与哈希函数的算法实现关系十分密切，虚拟节点的增加也能对映射的分布起到平衡的作用，但需要结合实际情况来测试虚拟节点的合适数值。</p>
+<p>本文到此就结束了，代码在示例仓库中，示例代码中实现了多种不同的哈希函数实现，可以横向比较，其中也包括<code>dubbo</code>中的一致性哈希算法的实现，<code>Guava</code>中的<code>MurmurHash3</code>实现等等。</p>
+<p>欢迎各交流与反馈！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://en.wikipedia.org/wiki/Consistent_hashing" target="_blank" rel="noopener">Consistent Hashing</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/Hash_function" target="_blank" rel="noopener">Hash Function</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/List_of_hash_functions" target="_blank" rel="noopener">List of Hash Functions</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/MurmurHash" target="_blank" rel="noopener">MurmurHash</a></em></li>
+<li><em><a href="https://docs.google.com/spreadsheets/d/1_q2EVcxA2HjcrlVMbaqXwMj31h9M5-Bqj_m8vITOwwk/edit#gid=0" target="_blank" rel="noopener">Google Guava Hash Functions</a></em></li>
+<li><em><a href="https://www.acodersjourney.com/system-design-interview-consistent-hashing/" target="_blank" rel="noopener">System Design Interview Concepts - Consistent Hashing</a></em></li>
+<li><em><a href="https://www.cnkirito.moe/consistent-hash-lb/" target="_blank" rel="noopener">一致性哈希负载均衡算法的探讨</a></em></li>
+<li><em><a href="https://www.it-swarm.dev/zh/java/%E7%AE%80%E5%8D%95%E7%BB%9F%E8%AE%A1-%E7%94%A8%E4%BA%8E%E8%AE%A1%E7%AE%97%E5%9D%87%E5%80%BC%EF%BC%8C%E6%A0%87%E5%87%86%E5%B7%AE%E7%AD%89%E7%9A%84java%E5%8C%85/969011246/" target="_blank" rel="noopener">简单统计 - 用于计算均值，标准差等的Java包</a></em></li>
+<li><em><a href="https://blog.reverberate.org/2012/01/state-of-hash-functions-2012.html" target="_blank" rel="noopener">State of the hash functions, 2012</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/consistent-hash-algorithm/" target="_blank" rel="noopener">https://zhaoyang.me/posts/consistent-hash-algorithm/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/totp-algorithm/" class="related-link">动态密码TOTP</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/dubbo-export-refer-analysis/" class="related-link">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-isp/" class="related-link">读源码学架构系列：接口隔离原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/consistent-hash/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>consistent hash</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/algorithm/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>algorithm</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-from-source-code-design-pattern-singleton/" rel="prev">&lt; 读源码学架构系列：单例模式</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-ood-lsp/" rel="next">读源码学架构系列：里氏替换原则 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

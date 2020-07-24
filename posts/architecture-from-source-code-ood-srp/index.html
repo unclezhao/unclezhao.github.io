@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：单一职责原则 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="0x01 定义 单一职责原则（SRP）：就一个类而言，应该仅有一个引起它变化的原因。 这里强调了……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-ood-srp/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-06-27T16:14:32+08:00",
+        "dateModified": "2020-07-03T14:45:43+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-ood-srp/",
+        "headline": "读源码学架构系列：单一职责原则",
+        "description": "0x01 定义 单一职责原则（SRP）：就一个类而言，应该仅有一个引起它变化的原因。 这里强调了……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  2677 ,
+        "image": ["https://zhaoyang.me/img/15935644725524.jpg","https://zhaoyang.me/img/15935712956046.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：单一职责原则" />
+<meta property="og:description" content="0x01 定义 单一职责原则（SRP）：就一个类而言，应该仅有一个引起它变化的原因。 这里强调了……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-ood-srp/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15935644725524.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-06-27T16:14:32&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-03T14:45:43&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：单一职责原则</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-06-27T16:14:32&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.6.27</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/ood-principles/" class="category-link">ood principles</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <h4 id="0x01-定义"><a href="#0x01-定义" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 定义</h4>
+<p>单一职责原则（<code>SRP</code>）：<strong>就一个类而言，应该仅有一个引起它变化的原因</strong>。</p>
+<p>这里强调了仅有一个引起变化的原因，但是为什么只能有一个原因呢？</p>
+<p>如果一个类承担的职责过多，一方面就相当于把这些职责耦合在了一起（面向对象设计的目标就是高内聚低耦合），另一方面，当某一个职责发生变化时，由于类承担了多个职责，所以一个职责的变化是有可能会抑制这个类对其他职责的实现能力的；同时，当变化发生时，可能会破坏我们的设计。</p>
+<p>这条原则本质上强调内聚性的，内聚性本身的定义为：一个模块的组成元素之间的功能相关性。单一职责原则对内聚性的理解可以扩展为：把内聚性和引起一个模块或者类改变的作用力联系起来。</p>
+<p>那到底什么是职责？</p>
+<p>在<code>SRP</code>中，职责被定义为：变化的原因（<code>a reason for change</code>）。如果你能够想到多于一个的动机去改变一个类，那么这个类就具有多于一个的职责。但往往，我们很难注意到这一点，因为我们习惯于以组的形式去考虑职责。</p>
+<p><code>Uncle Bob</code>对职责的描述有两句原话：</p>
+<blockquote>
+<p>So a responsibility is a family of functions that serves one particular actor.（职责就是为某一个特定角色服务的一系列功能。）</p>
+</blockquote>
+<blockquote>
+<p>An actor for a responsibility is the single source of change for that responsibility.（职责的参与者是该职责发生变化的唯一来源。）</p>
+</blockquote>
+<p>以<code>Spring</code>的<code>ApplicationContext</code>接口为例：</p>
+<p><img src="/img/15935644725524.jpg" alt=""></p>
+<p>上图是<code>Spring</code>框架中<code>ApplicationContext</code>接口的继承层级关系。</p>
+<p>从图中可以看到，<code>ApplicationContext</code>继承了六个接口，其中有两个又是继承自<code>BeanFactory</code>，一个继承自<code>ResourceLoader</code>。这些不同的接口各自承担着不同的职责：</p>
+<ul>
+<li><code>ApplicationEventPublisher</code>：事件派发；</li>
+<li><code>BeanFactory</code>：<code>IoC</code>的核心接口；</li>
+<li><code>MessageSource</code>：国际化消息；</li>
+<li><code>ResourceLoader</code>：资源加载；</li>
+<li><code>EnvironmentCapable</code>：关联运行环境；</li>
+</ul>
+<p>结合<code>Uncle Bob</code>的那两句话看<code>ApplicationContext</code>的继承关系：上面的接口各自定义了一组组不同的功能（每一组功能对应于一个角色），而<code>ApplicationContext</code>就是这些职责的参与者（同时会充当多个角色），<code>ApplicationContext</code>作为某一种角色使用某一组功能时，如果功能发生了变化时，这种变化就会反映到对应定义功能的接口上去，让对应的接口也做出相应的改变。</p>
+<h4 id="0x02-示例"><a href="#0x02-示例" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 示例</h4>
+<p>假设有一个<code>Book</code>类，它封装了自己的一些属性和功能，如标题、作者、总页数，以及翻页功能，同时还能打印当前页：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Book</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">Book</span><span style="color:#f92672">(</span>String title<span style="color:#f92672">,</span> String author<span style="color:#f92672">,</span> Integer totalPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">title</span> <span style="color:#f92672">=</span> title<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">author</span> <span style="color:#f92672">=</span> author<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">totalPage</span> <span style="color:#f92672">=</span> totalPage<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> String title<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> String author<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> Integer totalPage<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> Integer currPage <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getTitle</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> title<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getAuthor</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> author<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">prevPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Integer prevPage <span style="color:#f92672">=</span> <span style="color:#f92672">--</span>currPage<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>prevPage <span style="color:#f92672">&lt;=</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            prevPage <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        turnToPage<span style="color:#f92672">(</span>prevPage<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">nextPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Integer nextPage <span style="color:#f92672">=</span> <span style="color:#f92672">++</span>currPage<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>nextPage <span style="color:#f92672">&gt;=</span> totalPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            nextPage <span style="color:#f92672">=</span> totalPage<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        turnToPage<span style="color:#f92672">(</span>nextPage<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnToPage</span><span style="color:#f92672">(</span>Integer toPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        currPage <span style="color:#f92672">=</span> toPage<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getCurrentPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;current page &#34;</span> <span style="color:#f92672">+</span> currPage <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; content&#34;</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+    
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">printCurrentPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>getCurrentPage<span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>上面的代码将所有的属性和功能全部定义在了<code>Book</code>类中，我们按上面的定义来诊断这个类的封装，作为<code>Book</code>，属性和翻页相关的方法都没有问题，这些都属于<code>Book</code>本身的职责，也就是说，这些属性和相关的功能发生变化时，理所当然的需要修改<code>Book</code>；但是打印这个功能有没有问题呢？</p>
+<p>比如，如果用户希望使用不同的格式打印时，我们不得不修改<code>Book</code>类，将<code>Book</code>类与打印的一些细节信息耦合在一起，由此可知除了<code>Book</code>本身的属性和功能变化会导致<code>Book</code>类的修改时，打印细节的调整也会导致<code>Book</code>类的修改，显然，这就不符合单一职责原则了。</p>
+<p>我们应当将打印相关的操作抽取出来，封装成一个<code>Printable</code>接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Printable</span> <span style="color:#f92672">{</span>
+    
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">print</span><span style="color:#f92672">(</span>String content<span style="color:#f92672">);</span>
+    
+<span style="color:#f92672">}</span>
+</code></pre></div><p>该接口只有一个<code>print</code>方法，参数就是要打印的内容。对于不同的格式，定义不同的实现类即可：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">HtmlPrinter</span> <span style="color:#66d9ef">implements</span> Printable <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">print</span><span style="color:#f92672">(</span>String content<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>String<span style="color:#f92672">.</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;&lt;html&gt; %s &lt;/html&gt;&#34;</span><span style="color:#f92672">,</span> content<span style="color:#f92672">));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PlainTextPrinter</span> <span style="color:#66d9ef">implements</span> Printable <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">print</span><span style="color:#f92672">(</span>String content<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>content<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>通过抽取<code>Printable</code>接口，我们将打印相关的职责从<code>Book</code>类中分离了出来。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Book</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">Book</span><span style="color:#f92672">(</span>String title<span style="color:#f92672">,</span> String author<span style="color:#f92672">,</span> Integer totalPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">title</span> <span style="color:#f92672">=</span> title<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">author</span> <span style="color:#f92672">=</span> author<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">totalPage</span> <span style="color:#f92672">=</span> totalPage<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">private</span> String title<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> String author<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> Integer totalPage<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> Integer currPage <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getTitle</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> title<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getAuthor</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> author<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">prevPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Integer prevPage <span style="color:#f92672">=</span> <span style="color:#f92672">--</span>currPage<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>prevPage <span style="color:#f92672">&lt;=</span> 0<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            prevPage <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        turnToPage<span style="color:#f92672">(</span>prevPage<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">nextPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Integer nextPage <span style="color:#f92672">=</span> <span style="color:#f92672">++</span>currPage<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>nextPage <span style="color:#f92672">&gt;=</span> totalPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            nextPage <span style="color:#f92672">=</span> totalPage<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        turnToPage<span style="color:#f92672">(</span>nextPage<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnToPage</span><span style="color:#f92672">(</span>Integer toPage<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        currPage <span style="color:#f92672">=</span> toPage<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getCurrentPage</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;current page &#34;</span> <span style="color:#f92672">+</span> currPage <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; content&#34;</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>Book</code>类简单的调整一下。这样调整之后，打印角色的参与者自行决定要使用什么格式进行打印，它只关注使用什么格式打印传入的内容；<code>Book</code>类角色的参与者只需要翻到需要打印的页面，再返回要页面的内容即可，它只关注你要翻到哪一页。各自职责清晰明了。</p>
+<p>更进一步，假如，我们希望能支持用户以不同的格式来将<code>Book</code>保存到本地。同样的，如果我们将保存的功能放到<code>Book</code>类中，又会引起同样的问题，<code>Book</code>类需要关注到保存的细节了，保存的细节发生变化时，又会导致<code>Book</code>类需要做出修改。因此，我们需要单独建立一个保存的接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Downloadable</span> <span style="color:#f92672">{</span>
+    
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">download</span><span style="color:#f92672">(</span>Book book<span style="color:#f92672">);</span>
+    
+<span style="color:#f92672">}</span>
+</code></pre></div><p>具体的格式以不同的实现类来实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EpubFormatDownloader</span> <span style="color:#66d9ef">implements</span> Downloadable <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">download</span><span style="color:#f92672">(</span>Book book<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>String<span style="color:#f92672">.</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Book %s download with format EPUB&#34;</span><span style="color:#f92672">,</span> book<span style="color:#f92672">.</span><span style="color:#a6e22e">getTitle</span><span style="color:#f92672">()));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MobiFormatDownloader</span> <span style="color:#66d9ef">implements</span> Downloadable <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">download</span><span style="color:#f92672">(</span>Book book<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>String<span style="color:#f92672">.</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Book %s download with format MOBI&#34;</span><span style="color:#f92672">,</span> book<span style="color:#f92672">.</span><span style="color:#a6e22e">getTitle</span><span style="color:#f92672">()));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>我们用同样的方式新建了一个<code>Downloadable</code>接口来将下载功能分离出来。其实，这个下载功能和我们平时使用的持久化功能很相似，我们在开发时，对于持久化功能，始终会使用一层接口将具体持久化的细节隔离开，这样做最大的好处在于开发测试时，我们可以使用内存数据库来进行开发测试，实际上线时使用关系数据库或是<code>NoSQL</code>等其它类型的数据库进行数据的持久化。</p>
+<p>而<code>Book</code>类更像是<code>DDD</code>中的领域对象了，将自己的属性和功能封装在一起，让自己保持高度的内聚性。</p>
+<h4 id="0x03-总结"><a href="#0x03-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 总结</h4>
+<p><code>SRP</code>是所有原则中最简单的原则之一，但也最难用好。我们早已习惯于把职责耦合在一起，用<code>Uncle Bob</code>的话说：<strong>软件设计真正要做的许多内容就是发现职责并把那些职责相互分离</strong>。</p>
+<p>其实，分离也会带来其它的问题，一个典型的问题就是代码的复杂性，看看上面的<code>ApplicationContext</code>的继承关系图，还算比较清晰，如果下探到更具体的一些子类，如<code>XmlWebApplicationContext</code>的继承关系：</p>
+<p><img src="/img/15935712956046.jpg" alt=""></p>
+<p>这个继承关系已经有二十多个对象了，复杂性可想而知。</p>
+<p>在前一篇，我们已经知道这些设计原则是用来诊断我们的设计的，所以，对于<code>SRP</code>，我们要学习去判断类的职责；职责的定义是指引起类变化的原因。有时候，我们可能会碰到一种情况：我们通过职责分离的方式分离出了两个接口，而应用程序的变化方式总是会导致这两个职责同时发生变化，这种情况下，<code>Uncle Bob</code>的建议是不必分离，因为分离后会带来不必要的复杂性。我个人的理解就是结合具体的使用场景来权衡，不做过度设计，不做超前设计。</p>
+<p>欢迎各种交流与反馈！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://book.douban.com/subject/1140457/" target="_blank" rel="noopener">敏捷软件开发</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/Single-responsibility_principle" target="_blank" rel="noopener">Single Responsibility Principle</a></em></li>
+<li><em><a href="https://code.tutsplus.com/tutorials/solid-part-1-the-single-responsibility-principle--net-36074" target="_blank" rel="noopener">The Single Responsibility Principle</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-ood-srp/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-ood-srp/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-isp/" class="related-link">读源码学架构系列：接口隔离原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-lsp/" class="related-link">读源码学架构系列：里氏替换原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-ocp/" class="related-link">读源码学架构系列：开放封闭原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-solid/" class="related-link">读源码学架构系列：面向对象设计的原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/solid/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SOLID</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/ood-principles/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>OOD Principles</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-from-source-code-ood-ocp/" rel="prev">&lt; 读源码学架构系列：开放封闭原则</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-ood-solid/" rel="next">读源码学架构系列：面向对象设计的原则 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

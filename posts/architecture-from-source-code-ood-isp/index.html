@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：接口隔离原则 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="接口隔离原则（ISP）： 不应该强迫客户依赖于它们不用的方法。 这个原则用来拆分庞大臃肿……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-ood-isp/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-07-05T16:50:14+08:00",
+        "dateModified": "2020-07-09T10:00:51+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-ood-isp/",
+        "headline": "读源码学架构系列：接口隔离原则",
+        "description": "接口隔离原则（ISP）： 不应该强迫客户依赖于它们不用的方法。 这个原则用来拆分庞大臃肿……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  3652 ,
+        "image": ["https://zhaoyang.me/img/15942019667414.jpg","https://zhaoyang.me/img/15942035283520.jpg","https://zhaoyang.me/img/15942041056822.jpg","https://zhaoyang.me/img/15942585373457.jpg","https://zhaoyang.me/img/15942585902962.jpg","https://zhaoyang.me/img/15942591846908.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：接口隔离原则" />
+<meta property="og:description" content="接口隔离原则（ISP）： 不应该强迫客户依赖于它们不用的方法。 这个原则用来拆分庞大臃肿……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-ood-isp/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15942019667414.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-07-05T16:50:14&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-09T10:00:51&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：接口隔离原则</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-07-05T16:50:14&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.7.5</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/ood-principles/" class="category-link">ood principles</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>接口隔离原则（<code>ISP</code>）： 不应该强迫客户依赖于它们不用的方法。</p>
+<p>这个原则用来拆分庞大臃肿的接口成为更小的和更具体的接口，这样使用者将会只需要知道他们感兴趣的方法。这种缩小的接口也被称为<strong>角色接口</strong>。<code>ISP</code>承认存在有一些对象，它们确实不需要内聚的接口，但是<code>ISP</code>建议不应该把它们作为一个单一的类存在，相反，使用者看到的应该是多个具有内聚接口的抽象基类。</p>
+<p>接口隔离原则的目的是让系统解耦，从而更容易重构、更改和重新部署。</p>
+<p>考虑一个安全系统，在这个系统中，有一些<code>Door</code>对象，可以被加锁和解锁，并且<code>Door</code>对象知道自己是开着还是关着。现在，考虑一个这样的实现，<code>TimedDoor</code>，如果门开着的时间过长，它就会发出警报声。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Door</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">lock</span><span style="color:#f92672">();</span>
+
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
+
+    <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">isDoorOpen</span><span style="color:#f92672">();</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>如果一个对象希望得到超时通知，它可以调用<code>Timer</code>的<code>register</code>函数。该函数有两个参数，一个是超时时间，另一个是指向<code>TimerClient</code>对象的引用，该对象的<code>timeout</code>函数会在超时到达时被调用。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Timer</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">register</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> timeout<span style="color:#f92672">,</span> TimerClient client<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">TimerClient</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">timeout</span><span style="color:#f92672">();</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>如何将<code>TimerClient</code>类和<code>TimedDoor</code>类联系起来，才能在超时时通知到<code>TimedDoor</code>中相应的处理代码呢？下面是一个容易想到的解决方案：</p>
+<p><img src="/img/15942019667414.jpg" alt=""></p>
+<p>其中，<code>Door</code>继承了<code>TimerClient</code>，因此<code>TimedDoor</code>也就继承了<code>TimerClient</code>。这就保证了<code>TimerClient</code>可以把自己注册到<code>Timer</code>中，并且可以接收<code>timeout</code>消息。</p>
+<p>这个方案也不是没有问题，主要的问题是，现在<code>Door</code>类依赖于<code>TimerClient</code>了。可并不是所有种类的<code>Door</code>都需要定时功能。实际上，最初的<code>Door</code>抽象类和定时功能没有任何关系。如果创建了无需定时功能的<code>Door</code>的派生类，那么在这些派生类中就必须要提供<code>timeout</code>方法的退化实现（这就有可能违反了<code>LSP</code>）。此外，使用这些派生类的应用程序即使不使用<code>TimerClient</code>类的定义，也必须要引入它，这样就有了不必要的复杂性和不必要的耦合。</p>
+<p>上面的设计方案是一个典型的<strong>接口污染</strong>的例子，<code>Door</code>的接口被一个它不需要的方法污染了。在<code>Door</code>的接口中加入这个方法只是为了能给它的一个子类带来好处。如果每次子类需要一个新方法时，这个方法就加到基类中去，这会进一步污染基类的接口。</p>
+<p>而且，每次基类中加入一个方法时，派生类中就必须要实现这个方法（或者定义一个缺省实现）。事实上，有一种特定的实践让我们可以使派生类无需实现这些方法，该实践的做法是把这些接口合并为一个基类，并在这个基类中提供接口中方法的退化方法。但是，这种实践违反了<code>LSP</code>，带来了维护和重用方面的问题。</p>
+<p><code>Door</code>接口和<code>TimerClient</code>接口是被完全不同的客户程序使用的。<code>Timer</code>使用<code>TimerClient</code>，而操作门的类使用<code>Door</code>。既然客户程序是分离的，所以<strong>接口也应该保持分离</strong>。</p>
+<p>为什么呢？</p>
+<p>我们在考虑软件中引起变化的原因时，<strong>通常考虑的都是接口的变化会怎样影响它们的使用者</strong>。例如，如果<code>TimerClient</code>的接口改变了，我们会去关心<code>TimerClient</code>的所有使用者要做什么样的改变。</p>
+<p>然而，实际上也存在着反向的影响，<strong>有时，迫使接口改变的，正是它们的使用者</strong>。例如，有些<code>Timer</code>的使用者会注册多个超时通知请求。比如对于<code>TimerDoor</code>来说，当它检测到门被打开时，会向<code>Timer</code>发送一个<code>register</code>消息，请求一个超时通知。可是，在超时到达前，门关上了，关闭一会儿后又被再次打开。这就导致在原先的超时到达前又注册了一个新的超时请求。最后，最初的超时到达，<code>TimedDoor</code>的<code>timeout</code>方法被调用，<code>Door</code>错误地发出了警报。</p>
+<p>我们可以通过在注册时增加一个<code>timeOutID</code>的唯一标识来改正上面情形中的错误。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Timer</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">register</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> timeout<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> timeOutID<span style="color:#f92672">,</span> TimerClient client<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">TimerClient</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">timeout</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> timeOutID<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>显然，这个改变会影响到<code>TimerClient</code>的所有使用者。对于上图中的设计，这个改变还会影响到<code>Door</code>以及<code>Door</code>的所有使用者，这不是我们所期望的。<strong>如果程序中一部分的更改会影响到程序中完全和它无关的其他部分，那么更改的代价和影响就变得不可预测，并且更改所附带的风险也会急剧增加</strong>。</p>
+<p>如果强迫客户程序依赖于那些它们不使用的方法，那么这些客户程序就面临着由于这些未使用方法的改变所带来的变更。因此，我们希望分离接口来尽可能的避免这种耦合。</p>
+<p>再考虑<code>TimedDoor</code>的问题，这里有两个独立的接口，有两个独立的客户--<code>Timer</code>以及<code>Door</code>所使用的对象。因为实现这两个接口需要操作同样的数据，所以这两个接口必须在同一个对象中实现。那么怎样才能遵循<code>ISP</code>呢？如何才能分离必须在一起实现的接口呢？</p>
+<p>该问题的答案是：<strong>一个对象的客户（使用者）不是必须通过该对象的接口去访问它，也可以通过委托或者通过该对象的基类去访问它</strong>。</p>
+<p>一个解决方案就是创建一个派生自<code>TimerClient</code>的对象，并把对该对象的请求委托给<code>TimedDoor</code>。如下图所示：</p>
+<p><img src="/img/15942035283520.jpg" alt=""></p>
+<p>当<code>TimedDoor</code>想要向<code>Timer</code>对象注册一个超时请求时，它就创建一个<code>DoorTimerAdapter</code>并且把它注册给<code>Timer</code>。当<code>Timer</code>对象发送<code>timeout</code>消息给<code>DoorTimerAdapter</code>时，<code>DoorTimerAdapter</code>把这个消息委托给<code>TimedDoor</code>。</p>
+<p>这个方案遵循<code>ISP</code>原则，并且避免了<code>Door</code>的客户程序和<code>Timer</code>之间的耦合。同时，<code>Timer</code>的变化不会影响到任何<code>Door</code>的使用者。此外，<code>TimedDoor</code>也不必具有和<code>TimerClient</code>一样的接口。<code>DoorTimerAdapter</code>会将<code>TimerClient</code>接口转换成<code>TimedDoor</code>接口。</p>
+<p>这个解决方案还是有些不够优雅，每次想去注册一个超时请求时，都要去创建一个新的对象。此外，委托处理会导致一些很小但仍然存在的运行时间和内存的开销，在某些应用领域，内存和运行时间都非常宝贵，以至于这种开销成了一个值得关注的问题。</p>
+<p>还有一种解决方案是通过分离接口来实现。如下图所示：</p>
+<p><img src="/img/15942041056822.jpg" alt=""></p>
+<p>在这个模型中，<code>TimedDoor</code>同时继承了<code>Door</code>和<code>TimerClient</code>。尽管这两个基类的使用者都可以使用<code>TimedDoor</code>，但是实际上却都不再依赖于<code>TimedDoor</code>类。这样，它们就通过分离的接口使用同一个对象。</p>
+<p>通常我们会优先选择这个解决方案。</p>
+<p>再看一个<code>ATM</code>用户界面的例子：<code>ATM</code>需要灵活的用户界面，它需要根据不同的操作显示不同的界面，比如输出信息需要能显示为多种语言等。显然，通过创建一个抽象基类把一些公共的逻辑封装起来，然后把每个<code>ATM</code>能执行的不同操作封装为类<code>Transaction</code>的派生类，这样我们可以得到类<code>DepositTransaction</code>、<code>WithdrawalTransaction</code>以及<code>TransferTransaction</code>。每个类都调用<code>UI</code>的方法，设计如下图示：</p>
+<p><img src="/img/15942585373457.jpg" alt=""></p>
+<p><img src="/img/15942585902962.jpg" alt=""></p>
+<p>现在我们用<code>OOD</code>的设计原则来检验上面的设计，显然这个设计不符合<code>LSP</code>原则。每个操作所使用的<code>UI</code>的方法，其他的操作类都不会使用，因此，对于任何一个<code>Transaction</code>的派生类的改动都会迫使对<code>UI</code>的相应改动，同时也影响到了其他所有<code>Transaction</code>的派生类及其他所有依赖于<code>UI</code>接口的类，引入了依赖的传递性和不必要的耦合。</p>
+<p>例如，如果要增加一种操作<code>PayGasBillTransaction</code>，为了处理该操作想要显示的特定消息，就必须要在<code>UI</code>中加入新的方法。但由于<code>DepositTransaction</code>、<code>WithdrawalTransaction</code>以及<code>TransferTransaction</code>全都依赖于<code>UI</code>接口，所以它们都需要重新编译。更糟糕的是，如果这些操作是作为组件供其他组件使用的话，那么这些组件必须全部重新编译部署，但事实上它们的逻辑没有做过任何的改动。</p>
+<p>通过将<code>UI</code>接口分解成<code>DepositUi</code>、<code>WithdrawUI</code>以及<code>TransferUI</code>这样的单独的接口，可以避免这种不合适的耦合，最终的<code>UI</code>接口可以去实现这些单独的接口：</p>
+<p><img src="/img/15942591846908.jpg" alt=""></p>
+<p>每次创建一个<code>Transaction</code>类的新派生类时，抽象接口<code>UI</code>就需要增加一个相应的基类，并且<code>UI</code>接口以及所有它的派生类都必须改变。不过，这些类并没有被很多的组件使用，事实上，它们可能仅被<code>main</code>程序或那些启动系统并创建具体<code>UI</code>实例所使用，因此，增加新的<code>UI</code>基类所带来的影响是可控的。</p>
+<p>臃肿的类（胖类）会导致它们的使用者之间产生不必要的耦合关系，当一个使用者要求胖类进行一个改动时，会影响到所有其他的使用者。因此，<strong>使用者应该仅仅依赖于它们实际调用的方法</strong>。通过把胖类的接口分解为多个特定于使用者的接口，可以实现这个目标。每个特定于使用者的接口仅仅声明它的特定客户或者客户组调用的那些函数。接着，该胖类就可以继承所有特定于使用者的接口，并实现它们，这样就解除了使用者和它们没有调用的方法之间的依赖关系，并使使用者之间互不依赖。</p>
+<p><code>OOD</code>的每个原则在应用时都必须小心，不能过度使用它们。尤其是在一些复杂的场景中，需要结合实际的需求做出一些平衡。</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://book.douban.com/subject/1140457/" target="_blank" rel="noopener">敏捷软件开发</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/Interface_segregation_principle" target="_blank" rel="noopener">Interface Segregation Principle</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-ood-isp/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-ood-isp/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-lsp/" class="related-link">读源码学架构系列：里氏替换原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-ocp/" class="related-link">读源码学架构系列：开放封闭原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-srp/" class="related-link">读源码学架构系列：单一职责原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-solid/" class="related-link">读源码学架构系列：面向对象设计的原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/solid/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SOLID</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/ood-principles/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>OOD Principles</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/totp-algorithm/" rel="prev">&lt; 动态密码TOTP</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-ood-dip/" rel="next">读源码学架构系列：依赖倒置原则 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

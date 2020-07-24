@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：里氏替换原则 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="里氏替换原则（LSP）：子类型必须能够替换掉它们的基类型。 这条原则强调的是正确的使用……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-ood-lsp/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-07-01T16:12:52+08:00",
+        "dateModified": "2020-07-08T11:31:33+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-ood-lsp/",
+        "headline": "读源码学架构系列：里氏替换原则",
+        "description": "里氏替换原则（LSP）：子类型必须能够替换掉它们的基类型。 这条原则强调的是正确的使用……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  3299 ,
+        "image": ["https://zhaoyang.me/img/15941696262614.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：里氏替换原则" />
+<meta property="og:description" content="里氏替换原则（LSP）：子类型必须能够替换掉它们的基类型。 这条原则强调的是正确的使用……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-ood-lsp/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15941696262614.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-07-01T16:12:52&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-08T11:31:33&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：里氏替换原则</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-07-01T16:12:52&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.7.1</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/ood-principles/" class="category-link">ood principles</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>里氏替换原则（<code>LSP</code>）：子类型必须能够替换掉它们的基类型。</p>
+<p>这条原则强调的是正确的使用抽象。</p>
+<p><code>OCP</code>背后的主要机制是抽象和多态。在静态类型语言中（如<code>Java</code>），支持抽象和多态的关键机制之一是继承，正是使用了继承，我们才可以基于抽象来封装公共逻辑，然后创建实现抽象基类中的抽象方法的子类。</p>
+<p>先看一个经典的例子，我们从小学开始，数学课上就教我们：正方形是特殊的长方形。那么，如果现在我们要对长方形和正方形建模的话，按照数学上的描述，正方形是继承自长方形的。所以，我们可能会这样来设计：</p>
+<p>长方形类：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Rectangle</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> width<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> height<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getWidth</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> width<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> width<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">width</span> <span style="color:#f92672">=</span> width<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getHeight</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> height<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> height<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">height</span> <span style="color:#f92672">=</span> height<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">area</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> width <span style="color:#f92672">*</span> height<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>接着是正方形：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Square</span> <span style="color:#66d9ef">extends</span> Rectangle <span style="color:#f92672">{</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> width<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">super</span><span style="color:#f92672">.</span><span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span>width<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">super</span><span style="color:#f92672">.</span><span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span>width<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> height<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">super</span><span style="color:#f92672">.</span><span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span>height<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">super</span><span style="color:#f92672">.</span><span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span>height<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>因为正方形的四条边长相同，所以，我们需要在<code>setWidth()</code>方法和<code>setHeight()</code>方法中，分别同时对<code>width</code>和<code>height</code>进行赋值操作。</p>
+<p>好了，我们现在对我们的设计编写测试用例，分别测试计算长方形和正方形的面积：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testRectangleArea</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Rectangle rec <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Rectangle<span style="color:#f92672">();</span>
+        rec<span style="color:#f92672">.</span><span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span>5<span style="color:#f92672">);</span>
+        rec<span style="color:#f92672">.</span><span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span>4<span style="color:#f92672">);</span>
+        assertEquals<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">,</span> 20<span style="color:#f92672">,</span> rec<span style="color:#f92672">.</span><span style="color:#a6e22e">area</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testSquareArea</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        Rectangle rec <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Square<span style="color:#f92672">();</span>
+        rec<span style="color:#f92672">.</span><span style="color:#a6e22e">setWidth</span><span style="color:#f92672">(</span>5<span style="color:#f92672">);</span>
+        rec<span style="color:#f92672">.</span><span style="color:#a6e22e">setHeight</span><span style="color:#f92672">(</span>4<span style="color:#f92672">);</span>
+        assertEquals<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">,</span> 20<span style="color:#f92672">,</span> rec<span style="color:#f92672">.</span><span style="color:#a6e22e">area</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+</code></pre></div><p>这两个测试用例，结果：</p>
+<p><img src="/img/15941696262614.jpg" alt=""></p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">java<span style="color:#f92672">.</span><span style="color:#a6e22e">lang</span><span style="color:#f92672">.</span><span style="color:#a6e22e">AssertionError</span><span style="color:#f92672">:</span> 
+Expected <span style="color:#f92672">:</span>20
+Actual   <span style="color:#f92672">:</span>16
+<span style="color:#f92672">&lt;</span>Click to see difference<span style="color:#f92672">&gt;</span>
+</code></pre></div><p><code>testSquareArea()</code>测试用例没通过，期望值是<code>20</code>，实际值是<code>16</code>。</p>
+<p>我们来看一下测试用例的内容，这里的<code>Rectangle</code>是使用的<code>Square</code>来实例化的，先是设置了<code>Rectangle</code>的宽，然后再设置了它的长，最后断言面积的值。从数学的定义上来分析：我先设置长方形的长为<code>5</code>，然后设置长方形的宽为<code>4</code>，然后判断长方形的面积为<code>20</code>，没有哪里有问题啊？</p>
+<p>这个测试用例不通过的根本原因在于测试用例做了一个假设：改变<code>Rectangle</code>的宽不会导致其长发生变化。</p>
+<p>很显然，改变一个长方形的宽不会影响它的长的假设是合理的。但是，并不是所有可以作为<code>Rectangle</code>传递的对象都满足这个假设，例如这里的<code>Square</code>类。所以这里的<code>Square</code>和<code>Rectangle</code>之间的关系是违反<code>LSP</code>的。</p>
+<p>这个测试用例本身是没有问题的，长方形的宽和长是可以独立变化的，所以以上面的逻辑进行断言没有问题。问题在于<code>Square</code>类的实现，违反了长和宽可以独立变化这条规则。</p>
+<p>到这里，<code>LSP</code>让我们明白了一个非常重要的结论：<strong>一个模型，如果孤立地看，并不内有真正意义上的有效性，模型的有效性只能通过它的客户程序来表现</strong>。在评估一个特定的设计是否恰当时，不能完全孤立地看这个解决方案，必须要根据该设计的使用者所做出的合理假设来审视它。</p>
+<p>就像上面的<code>Rectangle</code>和<code>Square</code>两个类，孤立地看，两个类都没有问题，也符合数学意义上的长方形和正方形。但是，在使用者使用时（测试用例）却不能按预期正常地工作。</p>
+<p>那前面说的正方形是特殊的长方形不对吗？</p>
+<p>正方形可以是长方形（<code>IS-A</code>），但是，从测试用例的角度来看，<code>Square</code>对象不是<code>Rectangle</code>对象。因为<code>Square</code>对象的行为方式和测试用例所期望的<code>Rectangle</code>对象的行为方式不相容、不正确。而我们<strong>做为软件设计者，对象的行为方式才是我们真正所关注的问题</strong>。</p>
+<p>从上面的例子，我们可以看到<code>LSP</code>强调并指出，<code>OOD</code>中<code>IS-A</code>的关系是针对行为方式而言的，并且，行为方式是可以进行合理假设的，也是客户端程序（调用方、使用者）所依赖的。</p>
+<p>这里提到了<strong>合理假设</strong>，这个合理假设是对客户需求的合理假设，那怎样才能知道客户真正的要求呢？那就是**基于契约设计（<code>DBC</code>）**了：</p>
+<blockquote>
+<p>使用DBC，类的编写者显式地规定针对该类的契约。客户代码的编写者可以通过该契约获悉可以依赖的行为方式。契约是通过为每个方法声明的前置条件（<code>preconditions</code>）和后置条件（<code>postconditions</code>）来指定的。要使一个方法得以执行，前置条件必须要为真。执行完毕后，该方法要保证后置条件为真。</p>
+</blockquote>
+<blockquote>
+<p>在重新声明派生类中的例程（<code>routine</code>）时，只能使用相等或者更弱的前置条件来替换原始的前置条件，只能使用相等或者更强的后置条件来替换原始的后置条件。</p>
+</blockquote>
+<p>也就是说，当通过基类的接口使用对象时，用户只知道基类的前置条件和后置条件。因此，派生类对象不能期望这些用户遵从比基类更强的前置条件。也即是，派生类必须接受基类可以接受的一切。同时，派生类必须和基类的所有后置条件一致。也即是，派生类的行为方式和输出不能违反基类已经确立的任何限制。基类的用户不应该被派生类的输出扰乱。</p>
+<p>再看回上面的例子，<code>Rectangle#setWidth(int w)</code>的后置条件可以看作是：<code>assertTrue(width == w &amp;&amp; height == old.height)</code>，这里的<code>old</code>是<code>setWidth</code>被调用之前<code>Rectangle</code>的值。</p>
+<p>显然，<code>Square#setWidth(int w)</code>的后置条件比<code>Rectangle#setWidth(int w)</code>的后置条件弱，因为它不满足<code>height == old.height</code>这条约束。因此，<code>Square</code>的<code>setWidth</code>方法违反了基类订下的契约。</p>
+<p>此外，我们也可以通过编写单元测试的方式来指定契约，单元测试通过彻底的测试一个类的行为来使该类的行为更加清晰。</p>
+<p>对于<code>LSP</code>，提取公共部分是个很好的设计工具（基于继承关系时）。关于提取公共部分，大师们提出：</p>
+<blockquote>
+<p>如果一组类都支持一个公共的职责，那么它们应该从一个公共的超类继承该职责。如果公共的超类还不存在，那么就创建一个，并把公共的职责放入其中。毕竟，这样一个类的有用性是确定无疑的--你已经展示了一些类会继承这些职责。然后稍后对系统的扩展也许会加入一个新的子类，该子类很可能会以新的方式来支持同样的职责。此时，这个新创建的超类可能会是一个抽象类。</p>
+</blockquote>
+<p><strong>总是保证子类可以代替它的基类是一个有效的管理复杂性的方法</strong>。一旦放弃了这一点，就必须要单独的来考虑每个类。</p>
+<p>在实际的开发中，我们常常使用如下两种方式来违反<code>LSP</code>：</p>
+<ul>
+<li>派生类中的退化函数：派生类的编写者认为某个函数在该派生类中没有用处，所以就将该函数的实现退化（空实现）。在派生类中存在退化函数并不一定表示违反了<code>LSP</code>，但是当出现这种情况时，还是值得注意一下。</li>
+<li>从派生类中抛出异常：在派生类的方法中添加了其基类不会抛出的异常。如果基类的使用者不期望这些异常，那么把它们添加到派生类的方法中就会导致不可替换性。此时要遵循<code>LSP</code>，要么就必须 改变使用者的期望，要么派生类就不应该抛出这些异常。</li>
+</ul>
+<p><code>OCP</code>是<code>OOD</code>中很多原则的核心，如果这个原则应用得有效，应用程序就会具有更好的可维护性、可重用性及健壮性。<code>LSP</code>是使<code>OCP</code>成为可能的主要原则之一。正是子类型的可替换性才使得使用基类类型的模块在无需修改的情况下就可以扩展。这种可替换性必须是开发人员可以隐式依赖的东西。因此，如果没有显式地强制基类类型的契约，那么代码就必须良好并且明显地表达出这一点。</p>
+<p>我们通常所说的<code>IS-A</code>的含义可于宽泛，<strong>不能作为子类型的定义</strong>。子类型的正确定义是<strong>可替换性的</strong>，这里的可替换性可以通过显式或者隐式的契约来定义。</p>
+<p><code>LSP</code>引出了<strong>基于契约设计</strong>，这里的契约我们通常是通过单元测试来实现的，基于单元测试来实现我们的设计意图，以确保满足用户（使用者）的真正的需求。用户可以通过验收测试来验证设计的有效性。</p>
+<p><code>LSP</code>在<code>Spring</code>框架和<code>Dubbo</code>框架的使用随处可见，比如<code>Spring</code>框架中的<code>AbstractXmlApplicationContext</code>，又比如<code>Dubbo</code>框架中的<code>AbstractLoadBalance</code>等等，太多了，毕竟，<code>LSP</code>是<code>OOD</code>原则实现的基石。</p>
+<p>题外话：</p>
+<p>其实，再次学习<code>LSP</code>之后，结合软件开发设计的发展，现在才明白以前学习的<code>TDD</code>中的测试其实和单元测试并不能完全等同。</p>
+<p>单元测试可以在写完代码之后再写测试用例，测试用例的目的是测试设计的意图和目标，每个测试用例是以能被隔离测试的最小独立行为的单元；</p>
+<p>而<code>TDD</code>中的测试是先于代码的，即所谓的代码未写测试先行，这里的测试本质上是设计的契约，测试驱动开发本质上是契约在驱动，以确保我们的设计符合预期。<code>TDD</code>中的测试可能有单元测试，还可以有功能测试等，其核心在于<strong>驱动</strong>，也就是说，通过一个测试来告诉你下一步该做什么。</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://book.douban.com/subject/1140457/" target="_blank" rel="noopener">敏捷软件开发</a></em></li>
+<li><em><a href="https://en.wikipedia.org/wiki/LSP" target="_blank" rel="noopener">LSP</a></em></li>
+<li><em><a href="https://docs.oracle.com/cd/E19683-01/806-7930/assert-13/index.html" target="_blank" rel="noopener">Preconditions, Postconditions, and Class Invariants</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-ood-lsp/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-ood-lsp/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-isp/" class="related-link">读源码学架构系列：接口隔离原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-ocp/" class="related-link">读源码学架构系列：开放封闭原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-srp/" class="related-link">读源码学架构系列：单一职责原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-solid/" class="related-link">读源码学架构系列：面向对象设计的原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/solid/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SOLID</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/ood-principles/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>OOD Principles</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/consistent-hash-algorithm/" rel="prev">&lt; 读源码学架构系列：一致性哈希</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-ood-ocp/" rel="next">读源码学架构系列：开放封闭原则 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

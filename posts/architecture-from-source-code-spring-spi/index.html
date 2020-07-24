@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：SPI之Spring实现 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="TL;DR 前一篇详细介绍了JDK中的SPI机制，今天来看看Spring框架中是如何使用SPI……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-spring-spi/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-06-18T16:59:09+08:00",
+        "dateModified": "2020-07-03T14:47:01+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-spring-spi/",
+        "headline": "读源码学架构系列：SPI之Spring实现",
+        "description": "TL;DR 前一篇详细介绍了JDK中的SPI机制，今天来看看Spring框架中是如何使用SPI……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  6189 ,
+        "image": ["https://zhaoyang.me/img/15928902591873.jpg","https://zhaoyang.me/img/15928903677630.jpg","https://zhaoyang.me/img/15928915049250.jpg","https://zhaoyang.me/img/15928915633042.jpg","https://zhaoyang.me/img/15928934453821.jpg","https://zhaoyang.me/img/15928935321499.jpg","https://zhaoyang.me/img/15928940171798.jpg","https://zhaoyang.me/img/15928940733887.jpg","https://zhaoyang.me/img/15928941728992.jpg","https://zhaoyang.me/img/15928943833724.jpg","https://zhaoyang.me/img/15928944936802.jpg","https://zhaoyang.me/img/15928946906770.jpg","https://zhaoyang.me/img/15928947195878.jpg","https://zhaoyang.me/img/15928947853820.jpg","https://zhaoyang.me/img/15928948313674.jpg","https://zhaoyang.me/img/15928948455580.jpg","https://zhaoyang.me/img/15928983498135.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：SPI之Spring实现" />
+<meta property="og:description" content="TL;DR 前一篇详细介绍了JDK中的SPI机制，今天来看看Spring框架中是如何使用SPI……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-spring-spi/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15928902591873.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-06-18T16:59:09&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-03T14:47:01&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：SPI之Spring实现</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-06-18T16:59:09&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.6.18</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/spi/" class="category-link">SPI</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>TL;DR</p>
+<p>前一篇详细介绍了<code>JDK</code>中的<code>SPI</code>机制，今天来看看<code>Spring</code>框架中是如何使用<code>SPI</code>来实现可扩展性的，然后与<code>JDK</code>的实现进行一下对比，再看看<code>Spring</code>是如何应用<code>SPI</code>的，最后，我们基于<code>SPI</code>来动手实现一个<code>Spring</code>的扩展。</p>
+<p>本文大纲如下：</p>
+<ol>
+<li><code>Spring</code>的<code>SPI</code>实现</li>
+<li>与<code>JDK</code>的<code>SPI</code>的差异</li>
+<li><code>Spring</code>中<code>SPI</code>的应用</li>
+<li>基于<code>SPI</code>实现<code>Spring</code>扩展</li>
+</ol>
+<p>其实，明白了<code>JDK</code>中的<code>SPI</code>，<code>Spring</code>的<code>SPI</code>实现原理是一样的，所以，本篇的内容会比较简单。</p>
+<h4 id="0x01-spring的spi实现"><a href="#0x01-spring的spi实现" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 Spring的SPI实现</h4>
+<p><code>SPI</code>分为多个角色：<code>Service</code>、<code>Service Provider</code>、<code>ServiceLoader</code>和资源文件（<code>META-INF</code>目录下）。</p>
+<p><code>Spring</code>框架的<code>SPI</code>实现也离不开这几个角色。</p>
+<p>首先，我们在<code>Spring</code>框架的源代码（或<code>Spring Boot</code>源代码）的资源文件目录下，可以找到<code>META-INF</code>文件夹，里面可以找到<code>spring.factories</code>文件，这个文件就是<code>Spring</code>实现<code>SPI</code>机制所需要的资源文件，里面会定义好一些扩展接口及实现类的信息，文件格式稍后再看。</p>
+<p>有了这个<code>spring.factories</code>文件，那服务加载器肯定会读取这个路径，在源码中搜索字符串<code>spring.factories</code>，即可定位到一个类：<code>SpringFactoriesLoader</code>，这是一个用<code>final</code>修饰的类，是不可以被继承的。它的注释中第一句就明确的说明了这个类是用于<code>Spring</code>框架内部的一般用途的工厂加载机制的。主要有<code>loadFactories()</code>和<code>loadFactoryNames()</code>这两个公有方法，这两个方法的用途注释已经解释得很清楚了，第一个是加载和实例化资源文件（<code>META-INF/spring.factories</code>）中的对应的工厂的实现类列表，另一个是加载资源文件中对应的工厂的实现类的全路径名称列表。</p>
+<p>按上面的描述，剩下的<code>Service</code>和<code>Service Provider</code>已经定义在资源文件中了，那我们现在看一下资源文件<code>spring.factories</code>的具体内容。</p>
+<p><img src="/img/15928902591873.jpg" alt=""></p>
+<p>上图是<code>spring-boot</code>项目<code>resources</code>目录下的<code>META-INF/spring.factories</code>文件的内容。</p>
+<p><code>SpringFactoriesLoader</code>类的注释中有对这个文件的格式做出相关的说明：</p>
+<p><img src="/img/15928903677630.jpg" alt=""></p>
+<p>即，<code>spring.factories</code>文件的格式必须是<code>Properties</code>的格式，也就是键值对的格式，其中键（也就是<code>key</code>）是接口或抽象类的全路径名称，值（也就是<code>value</code>）是逗号分隔的实现类名的列表，也必须是全路径名称。</p>
+<p>以<code>spring-boot</code>下的<code>spring.factories</code>文件的第一个定义为例：</p>
+<pre><code class="language-properties" data-lang="properties"># PropertySource Loaders
+org.springframework.boot.env.PropertySourceLoader=\
+org.springframework.boot.env.PropertiesPropertySourceLoader,\
+org.springframework.boot.env.YamlPropertySourceLoader
+</code></pre><p>这里的<code>org.springframework.boot.env.PropertySourceLoader</code>就是服务（即<code>SPI</code>中的<code>Service</code>角色）的定义，<code>org.springframework.boot.env.PropertiesPropertySourceLoader</code>和<code>org.springframework.boot.env.YamlPropertySourceLoader</code>就是服务提供者（即<code>SPI</code>中的<code>Service Provider</code>角色）的定义了。</p>
+<p>到这里，<code>SPI</code>中的四种角色就齐了。</p>
+<p>那<code>Spring</code>的<code>SPI</code>如何使用的呢？</p>
+<p>以<code>Spring Boot</code>为例，我们启动程序的时候入口是<code>SpringApplication#run()</code>方法，我们打开这个方法：</p>
+<p><img src="/img/15928915049250.jpg" alt=""></p>
+<p>上图就是<code>SpringApplication#run()</code>方法的具体实现，其中有一行是调用了<code>getSpringFactoriesInstances()</code>方法，我们再看一下该方法的实现：</p>
+<p><img src="/img/15928915633042.jpg" alt=""></p>
+<p>该方法里有一行调用<code>SpringFactoriesLoader.loadFactoryNames(type, classLoader)</code>，它的结果直接作为了<code>LinkedHashSet</code>的初始化参数。这一行实是在使用服务加载器<code>SpringFactoriesLoader</code>来加载所有对应类型的实现了。</p>
+<p>现在我们清楚了<code>Spring</code>中<code>SPI</code>是怎么工作的了。</p>
+<h4 id="0x02-与jdk的spi的差异"><a href="#0x02-与jdk的spi的差异" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 与JDK的SPI的差异</h4>
+<p>其实明白了<code>JDK</code>的<code>SPI</code>实现，<code>Spring</code>的实现几乎一样，唯一的差别就是资源文件的名称和内容了。</p>
+<p><code>JDK</code>的<code>SPI</code>对应的资源文件的名称必须是服务的全路径名称，而内容就是具体实现的类的全路径名称，可以有多个实现，但一行只能放一个实现；另外就是一个资源文件对于一个服务的定义；</p>
+<p>再看<code>Spring</code>的<code>SPI</code>对应的资源文件，该文件的名称是固定的，为<code>spring.factories</code>，内容必须是<code>Properties</code>格式，也可以有多组，但一个键值对应于一个服务的定义，如果一个服务有多个实现，可以在<code>value</code>中用逗号将多个实现的全路径类名分隔开。如果需要换行的号，就像前面的截图那样，用<code>\</code>结尾，以此表示下一行是当前行的续行。</p>
+<p>另外，就是根据使用场景的不同，两种实现的服务加载器中定义的方法不同，<code>Spring</code>的<code>SPI</code>实现支持更多的使用场景。</p>
+<h4 id="0x03-spring中spi的应用"><a href="#0x03-spring中spi的应用" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 Spring中SPI的应用</h4>
+<p>我们还是以上面的那个示例来看<code>SPI</code>在<code>Spring</code>中的应用。</p>
+<p>服务的定义：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Strategy interface located via {@link SpringFactoriesLoader} and used to load a
+</span><span style="color:#75715e"> * {@link PropertySource}.
+</span><span style="color:#75715e"> *
+</span><span style="color:#75715e"> * @author Dave Syer
+</span><span style="color:#75715e"> * @author Phillip Webb
+</span><span style="color:#75715e"> * @since 1.0.0
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">PropertySourceLoader</span> <span style="color:#f92672">{</span>
+
+	<span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Returns the file extensions that the loader supports (excluding the &#39;.&#39;).
+</span><span style="color:#75715e">	 * @return the file extensions
+</span><span style="color:#75715e">	 */</span>
+	String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getFileExtensions</span><span style="color:#f92672">();</span>
+
+	<span style="color:#75715e">/**
+</span><span style="color:#75715e">	 * Load the resource into one or more property sources. Implementations may either
+</span><span style="color:#75715e">	 * return a list containing a single source, or in the case of a multi-document format
+</span><span style="color:#75715e">	 * such as yaml a source for each document in the resource.
+</span><span style="color:#75715e">	 * @param name the root name of the property source. If multiple documents are loaded
+</span><span style="color:#75715e">	 * an additional suffix should be added to the name for each source loaded.
+</span><span style="color:#75715e">	 * @param resource the resource to load
+</span><span style="color:#75715e">	 * @return a list property sources
+</span><span style="color:#75715e">	 * @throws IOException if the source cannot be loaded
+</span><span style="color:#75715e">	 */</span>
+	List<span style="color:#f92672">&lt;</span>PropertySource<span style="color:#f92672">&lt;?&gt;&gt;</span> load<span style="color:#f92672">(</span>String name<span style="color:#f92672">,</span> Resource resource<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>PropertiesPropertySourceLoader</code>实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Strategy to load &#39;.properties&#39; files into a {@link PropertySource}.
+</span><span style="color:#75715e"> *
+</span><span style="color:#75715e"> * @author Dave Syer
+</span><span style="color:#75715e"> * @author Phillip Webb
+</span><span style="color:#75715e"> * @author Madhura Bhave
+</span><span style="color:#75715e"> * @since 1.0.0
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PropertiesPropertySourceLoader</span> <span style="color:#66d9ef">implements</span> PropertySourceLoader <span style="color:#f92672">{</span>
+
+	<span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> String XML_FILE_EXTENSION <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;.xml&#34;</span><span style="color:#f92672">;</span>
+
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getFileExtensions</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> String<span style="color:#f92672">[]</span> <span style="color:#f92672">{</span> <span style="color:#e6db74">&#34;properties&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;xml&#34;</span> <span style="color:#f92672">};</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> List<span style="color:#f92672">&lt;</span>PropertySource<span style="color:#f92672">&lt;?&gt;&gt;</span> load<span style="color:#f92672">(</span>String name<span style="color:#f92672">,</span> Resource resource<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+		Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> <span style="color:#f92672">?&gt;</span> properties <span style="color:#f92672">=</span> loadProperties<span style="color:#f92672">(</span>resource<span style="color:#f92672">);</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>properties<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">return</span> Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">emptyList</span><span style="color:#f92672">();</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">return</span> Collections
+				<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> OriginTrackedMapPropertySource<span style="color:#f92672">(</span>name<span style="color:#f92672">,</span> Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">unmodifiableMap</span><span style="color:#f92672">(</span>properties<span style="color:#f92672">),</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">));</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#a6e22e">@SuppressWarnings</span><span style="color:#f92672">({</span> <span style="color:#e6db74">&#34;unchecked&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;rawtypes&#34;</span> <span style="color:#f92672">})</span>
+	<span style="color:#66d9ef">private</span> Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> <span style="color:#f92672">?&gt;</span> loadProperties<span style="color:#f92672">(</span>Resource resource<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+		String filename <span style="color:#f92672">=</span> resource<span style="color:#f92672">.</span><span style="color:#a6e22e">getFilename</span><span style="color:#f92672">();</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>filename <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> filename<span style="color:#f92672">.</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span>XML_FILE_EXTENSION<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>Map<span style="color:#f92672">)</span> PropertiesLoaderUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">loadProperties</span><span style="color:#f92672">(</span>resource<span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> OriginTrackedPropertiesLoader<span style="color:#f92672">(</span>resource<span style="color:#f92672">).</span><span style="color:#a6e22e">load</span><span style="color:#f92672">();</span>
+	<span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>YamlPropertySourceLoader</code>实现：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Strategy to load &#39;.yml&#39; (or &#39;.yaml&#39;) files into a {@link PropertySource}.
+</span><span style="color:#75715e"> *
+</span><span style="color:#75715e"> * @author Dave Syer
+</span><span style="color:#75715e"> * @author Phillip Webb
+</span><span style="color:#75715e"> * @author Andy Wilkinson
+</span><span style="color:#75715e"> * @since 1.0.0
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">YamlPropertySourceLoader</span> <span style="color:#66d9ef">implements</span> PropertySourceLoader <span style="color:#f92672">{</span>
+
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getFileExtensions</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> String<span style="color:#f92672">[]</span> <span style="color:#f92672">{</span> <span style="color:#e6db74">&#34;yml&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;yaml&#34;</span> <span style="color:#f92672">};</span>
+	<span style="color:#f92672">}</span>
+
+	<span style="color:#a6e22e">@Override</span>
+	<span style="color:#66d9ef">public</span> List<span style="color:#f92672">&lt;</span>PropertySource<span style="color:#f92672">&lt;?&gt;&gt;</span> load<span style="color:#f92672">(</span>String name<span style="color:#f92672">,</span> Resource resource<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>ClassUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">isPresent</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;org.yaml.snakeyaml.Yaml&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span>
+					<span style="color:#e6db74">&#34;Attempted to load &#34;</span> <span style="color:#f92672">+</span> name <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; but snakeyaml was not found on the classpath&#34;</span><span style="color:#f92672">);</span>
+		<span style="color:#f92672">}</span>
+		List<span style="color:#f92672">&lt;</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;&gt;</span> loaded <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> OriginTrackedYamlLoader<span style="color:#f92672">(</span>resource<span style="color:#f92672">).</span><span style="color:#a6e22e">load</span><span style="color:#f92672">();</span>
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>loaded<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+			<span style="color:#66d9ef">return</span> Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">emptyList</span><span style="color:#f92672">();</span>
+		<span style="color:#f92672">}</span>
+		List<span style="color:#f92672">&lt;</span>PropertySource<span style="color:#f92672">&lt;?&gt;&gt;</span> propertySources <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;&gt;(</span>loaded<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">());</span>
+		<span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> 0<span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> loaded<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">();</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+			String documentNumber <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>loaded<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">()</span> <span style="color:#f92672">!=</span> 1<span style="color:#f92672">)</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34; (document #&#34;</span> <span style="color:#f92672">+</span> i <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">;</span>
+			propertySources<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> OriginTrackedMapPropertySource<span style="color:#f92672">(</span>name <span style="color:#f92672">+</span> documentNumber<span style="color:#f92672">,</span>
+					Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">unmodifiableMap</span><span style="color:#f92672">(</span>loaded<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>i<span style="color:#f92672">)),</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">));</span>
+		<span style="color:#f92672">}</span>
+		<span style="color:#66d9ef">return</span> propertySources<span style="color:#f92672">;</span>
+	<span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>这个服务是对<code>Spring</code>的配置文件的格式定义的扩展，两个实现分别是基于<code>Properties</code>格式的实现和<code>yaml</code>格式的实现。</p>
+<p>上面的代码是服务的定义，以及两种服务的实现。具体来说就是<code>Spring Boot</code>对默认配置文件的解析处理的定义。</p>
+<p>到这里，我们还不知道<code>Spring</code>是什么时候，在哪里加载该服务的定义，然后去哪里读取<code>properties</code>文件或<code>yml</code>文件的。也就是说，整个流程还没有串联起来，流程不清晰。</p>
+<p>于是，我们继续看<code>SpringAppliction#run()</code>方法，里面有一行调用<code>ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);</code>，再进去看方法<code>prepareEnvironment</code>的具体实现：</p>
+<p><img src="/img/15928934453821.jpg" alt=""></p>
+<p>这里首先会获取或创建环境对象，然后配置环境对象，我们看一下配置环境方法<code>configureEnvironment</code>的具体实现：</p>
+<p><img src="/img/15928935321499.jpg" alt=""></p>
+<p>这个方法是委托实现<code>configurePropertySources()</code>和<code>configureProfiles()</code>方法的模版方法，我们看一下这一行调用<code>configurePropertySources(environment, args);</code>，这里面通过环境去获取了<code>PropertySource</code>列表，并判断了<code>defaultProperties</code>和<code>addCommandLineProperties</code>，这里并没有使用服务加载器的代码，所以继续看源码。</p>
+<p>回到<code>prepareEnvironment</code>方法，接下来有一行调用<code>listeners.environmentPrepared(environment);</code>，再后面就绑定环境对象了，即这一行的调用<code>bindToSpringApplication()</code>，再后面就是配置与环境绑定的调用<code>ConfigurationPropertySources.attach(environment);</code>了。</p>
+<p>按道理，对配置文件的定位工作应该是在绑定到环境之前，因为就<code>Spring</code>的使用经验来说，配置文件本身是可以分环境来进行命名和配置的，所以，对应到这里的代码，应该就是在绑定环境之前的那一行调用了，即：<code>listeners.environmentPrepared(environment);</code>。</p>
+<p>我们进一步看这个方法的实现：</p>
+<p><img src="/img/15928940171798.jpg" alt=""></p>
+<p>这里是通知所有关注<code>ConfigurableEnvironment</code>的监听器，我们看一下<code>listener.enviromentPrepared()</code>方法的具体实现：</p>
+<p><img src="/img/15928940733887.jpg" alt=""></p>
+<p>原来是调用了<code>EventPublishingRunListener</code>的事件发布方法，这里使用的是事件驱动的方式进行事件的派发。</p>
+<p>而且，这个<code>EventPublishingRunListener</code>本身也是基于<code>SPI</code>机制实现的：</p>
+<p><img src="/img/15928941728992.jpg" alt=""></p>
+<p>我们接着看前面的事件派发，这里派发出去的事件类是<code>ApplicationEnvironmentPreparedEvent</code>，如果你清楚事件驱动模式的调用的话，这里就简单了，因为所有的关注事件<code>ApplicationEnvironmentPreparedEvent</code>的监听器都需要实现一个处理该事件的方法，所以，我们只需要去到该事件类，然后查看哪里监听器监听了该事件就可以定位到最终的目标了。</p>
+<p>我们继续打开类<code>ApplicationEnvironmentPreparedEvent</code>，在<code>IDEA</code>中，按住<code>ctrl</code>再单击类名即可出现所有使用了该类的位置，如下图所示：</p>
+<p><img src="/img/15928943833724.jpg" alt=""></p>
+<p>我们可以看到，有一个<code>ConfigFileApplicationListener</code>监听器，定义了方法：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">onApplicationEnvironmentPreparedEvent<span style="color:#f92672">(</span>ApplicationEnvironmentPreparedEvent event<span style="color:#f92672">)</span>
+</code></pre></div><p>我们看一下该方法的实现，第一行调用了<code>loadPostProcessors()</code>方法，我们进去看一下具体的实现：</p>
+<p><img src="/img/15928944936802.jpg" alt=""></p>
+<p>这里加载了所有的<code>EnvironmentPostProcessor.class</code>服务的实现，然后方法的第二行把当前对象也加到了<code>EnvironmentPostProcessor.class</code>服务提供者的列表中，然后对找到的这些服务提供者循环调用进行后续环境处理操作。</p>
+<p>对这些实现一个个查找发现，当前类的处理方法的实现为：</p>
+<p><img src="/img/15928946906770.jpg" alt=""></p>
+<p>进一步跟进，发现它调用了内部类<code>Loader#load()</code>方法：</p>
+<p><img src="/img/15928947195878.jpg" alt=""></p>
+<p>我们定位到这个<code>Loader</code>内部类，发现它的构造方法中就使用服务加载器对<code>PropertySourceLoader.class</code>服务进行了查找：</p>
+<p><img src="/img/15928947853820.jpg" alt=""></p>
+<p>前面的调用了<code>Loader#load()</code>方法，我们再看这个方法：</p>
+<p><img src="/img/15928948313674.jpg" alt=""></p>
+<p>进一步定位到：</p>
+<p><img src="/img/15928948455580.jpg" alt=""></p>
+<p>再继续查看就是根据条件进行判断并使用不同的实现去解析不同的文件了。</p>
+<p>现在，我们回到<code>PropertySourceLoader.class</code>服务的两个实现看一下（代码已经贴在前面了）。</p>
+<p>两个实现分别定义了各自所支持的不同的文件后缀，和上面的<code>load()</code>方法里的判断是匹配的。</p>
+<p>那<code>Spring</code>默认查找的是<code>application.properties</code>（或<code>application.yaml</code>），这个文件名<code>application</code>是哪里定义的呢？</p>
+<p>其实这个文件名就定义在<code>ConfigFileApplicationListener</code>类中，同时还定义了配置文件默认的路径，它还支持通过不同的参数来修改这个配置文件的路径和名称等，有兴趣可以自行查看该类的代码。</p>
+<p>现在我们再来回答前面的问题：<code>Spring</code>是什么时候，在哪里加载该服务的定义，然后去哪里读取<code>properties</code>文件或<code>yml</code>文件的？</p>
+<p>答案就是<code>ConfigFileApplicationListener</code>类了，<code>SpringApplication#run()</code>方法在启动时，创建了环境对象之后，会通过事件派发的机制广播一系列的事件给一系列的<code>SpringApplicationRunListener</code>实现者，它们会关注各自所关心的事件，并在接收到相应的事件后，做一些相应的处理。</p>
+<h4 id="0x04-基于spi实现spring扩展"><a href="#0x04-基于spi实现spring扩展" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x04 基于SPI实现Spring扩展</h4>
+<p>现在我们以<code>PropertySourceLoader.class</code>服务为例，结合<code>SpringApplication</code>的启动过程分析了<code>Spring</code>如何使用它的<code>SPI</code>机制的。</p>
+<p>下面又是动手的环境，我们还是以这个服务为例，为<code>Spring</code>实现一种新的配置文件格式的支持。</p>
+<p><code>toml</code>是在<code>golang</code>生态中广泛使用的一种配置文件格式，我们现在就动手为<code>Spring</code>实现对<code>toml</code>文件格式的支持吧。</p>
+<p>最新的<code>toml</code>标准为<code>v1.0.0-rc</code>，官方推荐的该版本的<code>Java</code>实现为<code>https://github.com/tomlj/tomlj</code>，我们就使用这个库来实现上面的扩展。</p>
+<p>首先定义服务提供者的类名<code>TomlPropertySourceLoader</code>，并实现<code>PropertySourceLoader</code>接口，然后实现对应的方法：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * Strategy to load &#39;.tml&#39; (or &#39;.toml&#39;) files into a {@link PropertySource}.
+</span><span style="color:#75715e"> *
+</span><span style="color:#75715e"> * @author zhaoyang.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TomlPropertySourceLoader</span> <span style="color:#66d9ef">implements</span> PropertySourceLoader <span style="color:#f92672">{</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getFileExtensions</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> String<span style="color:#f92672">[]</span> <span style="color:#f92672">{</span> <span style="color:#e6db74">&#34;tml&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;toml&#34;</span> <span style="color:#f92672">};</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> List<span style="color:#f92672">&lt;</span>PropertySource<span style="color:#f92672">&lt;?&gt;&gt;</span> load<span style="color:#f92672">(</span>String name<span style="color:#f92672">,</span> Resource resource<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> IOException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>ClassUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">isPresent</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;org.tomlj.Toml&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span>
+                <span style="color:#e6db74">&#34;Attempted to load &#34;</span> <span style="color:#f92672">+</span> name <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; but tomlj was not found on the classpath&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        TomlParseResult tomlParseResult <span style="color:#f92672">=</span> Toml<span style="color:#f92672">.</span><span style="color:#a6e22e">parse</span><span style="color:#f92672">(</span>resource<span style="color:#f92672">.</span><span style="color:#a6e22e">getInputStream</span><span style="color:#f92672">());</span>
+        Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> resultMap <span style="color:#f92672">=</span> tomlParseResult<span style="color:#f92672">.</span><span style="color:#a6e22e">toMap</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>resultMap<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">emptyList</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> OriginTrackedMapPropertySource<span style="color:#f92672">(</span>name<span style="color:#f92672">,</span> resultMap<span style="color:#f92672">));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>除此之外，还要在<code>resources</code>目录新建<code>META-INF</code>目录，并在该目录下新建文件<code>spring.factories</code>，文件内容如下：</p>
+<pre><code class="language-properties" data-lang="properties">org.springframework.boot.env.PropertySourceLoader=\
+me.zy.std.spi.spring.extension.TomlPropertySourceLoader
+</code></pre><p>然后，在<code>resources</code>目录新建<code>application.toml</code>文件，内容如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml"><span style="color:#75715e"># 这是一个 TOML 文档。</span>
+
+<span style="color:#a6e22e">title</span> = <span style="color:#e6db74">&#34;TOML 示例&#34;</span>
+
+[<span style="color:#a6e22e">owner</span>]
+<span style="color:#a6e22e">name</span> = <span style="color:#e6db74">&#34;Tom Preston-Werner&#34;</span>
+<span style="color:#a6e22e">dob</span> = <span style="color:#e6db74">1979-05-27T07:32:00-08:00</span> <span style="color:#75715e"># 第一类日期时刻</span>
+
+[<span style="color:#a6e22e">database</span>]
+<span style="color:#a6e22e">server</span> = <span style="color:#e6db74">&#34;192.168.1.1&#34;</span>
+<span style="color:#a6e22e">ports</span> = [ <span style="color:#ae81ff">8001</span>, <span style="color:#ae81ff">8001</span>, <span style="color:#ae81ff">8002</span> ]
+<span style="color:#a6e22e">connection_max</span> = <span style="color:#ae81ff">5000</span>
+<span style="color:#a6e22e">enabled</span> = <span style="color:#66d9ef">true</span>
+
+[<span style="color:#a6e22e">servers</span>]
+
+  <span style="color:#75715e"># 允许缩进（制表符和/或空格），不过不是必要的</span>
+  [<span style="color:#a6e22e">servers</span>.<span style="color:#a6e22e">alpha</span>]
+  <span style="color:#a6e22e">ip</span> = <span style="color:#e6db74">&#34;10.0.0.1&#34;</span>
+  <span style="color:#a6e22e">dc</span> = <span style="color:#e6db74">&#34;eqdc10&#34;</span>
+
+  [<span style="color:#a6e22e">servers</span>.<span style="color:#a6e22e">beta</span>]
+  <span style="color:#a6e22e">ip</span> = <span style="color:#e6db74">&#34;10.0.0.2&#34;</span>
+  <span style="color:#a6e22e">dc</span> = <span style="color:#e6db74">&#34;eqdc10&#34;</span>
+
+[<span style="color:#a6e22e">clients</span>]
+<span style="color:#a6e22e">data</span> = [ [<span style="color:#e6db74">&#34;gamma&#34;</span>, <span style="color:#e6db74">&#34;delta&#34;</span>], [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>] ]
+
+<span style="color:#75715e"># 数组中是可以换行的</span>
+<span style="color:#a6e22e">hosts</span> = [
+  <span style="color:#e6db74">&#34;alpha&#34;</span>,
+  <span style="color:#e6db74">&#34;omega&#34;</span>
+]
+</code></pre></div><p>最后，新建一个<code>Spring Boot</code>程序的启动类：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang.
+</span><span style="color:#75715e"> */</span>
+<span style="color:#a6e22e">@SpringBootApplication</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SpringTomlTextApplication</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>SpringTomlTextApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Value</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;${title}&#34;</span><span style="color:#f92672">)</span>
+    <span style="color:#66d9ef">private</span> String title<span style="color:#f92672">;</span>
+
+    <span style="color:#a6e22e">@Bean</span>
+    <span style="color:#66d9ef">public</span> CommandLineRunner <span style="color:#a6e22e">test</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>args <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
+            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Server started...&#34;</span><span style="color:#f92672">);</span>
+            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\n\n\n&#34;</span><span style="color:#f92672">);</span>
+            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;title = &#34;</span> <span style="color:#f92672">+</span> title<span style="color:#f92672">);</span>
+        <span style="color:#f92672">});</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>我们从配置文件中，注入一个<code>title</code>属性，并在应用启动后，将配置文件中配置的<code>title</code>属性的值输出到配置文件。</p>
+<p>启动程序后，可以看到控制台的输出：</p>
+<p><img src="/img/15928983498135.jpg" alt=""></p>
+<p>成功的从<code>application.toml</code>配置文件中读取出了我们所配置的属性值。</p>
+<p>至此，基于<code>Spring</code>的<code>SPI</code>实现就分析完了。</p>
+<h4 id="0x05-总结"><a href="#0x05-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x05 总结</h4>
+<p>这一篇我们分析了<code>Spring</code>框架的<code>SPI</code>扩展，我们仅以<code>PropertySourceLoader.class</code>服务为例进行了分析，并动手为此服务实现了<code>toml</code>的扩展。</p>
+<p>本质上，<code>Spring</code>的<code>SPI</code>与<code>Java</code>的<code>SPI</code>实现大同小异，但<code>Spring</code>在资源文件方面做了优化，将多个服务所需要的多个资源配置文件优化为统一的文件<code>spring.factories</code>，同时，文件的格式也是标准的<code>Properties</code>格式，这样对开发者要友好很多。</p>
+<p>在<code>Spring</code>框架的源代码中，大量的都使用了<code>SPI</code>机制进行扩展，有的扩展甚至有几十个之多，例如：<code>EnableAutoConfiguration.class</code>。</p>
+<p><code>SPI</code>机制带来的可扩展性是得到了业界的认可的。</p>
+<p>接下来会分析<code>Dubbo</code>框架中的<code>SPI</code>的实现，看看<code>Dubbo</code>的实现又有什么区别。</p>
+<p>好了，这一篇的内容到此就结束了，欢迎各种反馈和交流！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References</h5>
+<ol>
+<li><em><a href="https://github.com/toml-lang/toml" target="_blank" rel="noopener">Toml Lang</a></em></li>
+<li><em><a href="https://github.com/tomlj/tomlj" target="_blank" rel="noopener">Toml Lang v1.0.0-rc Java Implement</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-spring-spi/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-spring-spi/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-dubbo-spi/" class="related-link">读源码学架构系列：SPI之Dubbo实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-jdk-spi/" class="related-link">读源码学架构系列：SPI之JDK实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/dubbo-export-refer-analysis/" class="related-link">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/totp-algorithm/" class="related-link">动态密码TOTP</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/microkernel/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>MicroKernel</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/spring/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>Spring</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/spi/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SPI</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-from-source-code-dubbo-spi/" rel="prev">&lt; 读源码学架构系列：SPI之Dubbo实现</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-jdk-spi/" rel="next">读源码学架构系列：SPI之JDK实现 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

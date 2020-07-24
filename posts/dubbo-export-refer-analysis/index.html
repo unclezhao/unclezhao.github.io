@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：Dubbo服务暴露与服务消费流程分析 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="TL;DR Dubbo的服务暴露和服务的引用流程比较复杂，尤其是Dubbo框架对于扩展点实现了……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/dubbo-export-refer-analysis/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-07-07T08:49:04+08:00",
+        "dateModified": "2020-07-23T10:04:35+08:00",
+        "url": "https://zhaoyang.me/posts/dubbo-export-refer-analysis/",
+        "headline": "读源码学架构系列：Dubbo服务暴露与服务消费流程分析",
+        "description": "TL;DR Dubbo的服务暴露和服务的引用流程比较复杂，尤其是Dubbo框架对于扩展点实现了……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  13031 ,
+        "image": ["https://zhaoyang.me/img/15952963921582.jpg","https://zhaoyang.me/img/15953077811809.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：Dubbo服务暴露与服务消费流程分析" />
+<meta property="og:description" content="TL;DR Dubbo的服务暴露和服务的引用流程比较复杂，尤其是Dubbo框架对于扩展点实现了……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/dubbo-export-refer-analysis/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15952963921582.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-07-07T08:49:04&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-23T10:04:35&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-07-07T08:49:04&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.7.7</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/framework/" class="category-link">framework</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>TL;DR</p>
+<p><code>Dubbo</code>的服务暴露和服务的引用流程比较复杂，尤其是<code>Dubbo</code>框架对于扩展点实现了自动包装、自动装配、自适应和自动激活的这些特性，导致我们直接在看源码分析时，会出现很多地方的逻辑不清楚（因为有很多的类是在内存中动态生成的），这里我会把一些动态生成的关键的类的源码贴出来，这样有助于更清晰的理解<code>Dubbo</code>的服务暴露和和消费的整个过程。</p>
+<p>之所以对服务的暴露和引用的流程做分析，一方面是想更深入的理解<code>Dubbo</code>框架，另一方便是想结合<code>Dubbo</code>的这些扩展点，研究一下<code>Dubbo</code>的微内核加插件机制的架构，学架构不就得理解别人的思想吗？</p>
+<p><code>Dubbo</code>官方把服务的暴露叫做导出，把服务的消费叫作引用，下面也会使用这两个词语来代替。</p>
+<p>本文大纲：</p>
+<ol>
+<li><code>Dubbo</code>的配置覆盖策略</li>
+<li><code>Dubbo</code>框架分层</li>
+<li><code>Dubbo</code>服务的导出分析</li>
+<li><code>Dubbo</code>服务的引用分析</li>
+<li>微内核加插件的设计模式</li>
+</ol>
+<p>以下正文开始。</p>
+<h4 id="0x01-dubbo的配置覆盖策略"><a href="#0x01-dubbo的配置覆盖策略" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 <code>Dubbo</code>的配置覆盖策略</h4>
+<p><code>Dubbo</code>对配置参数的处理分两种情况，一种是启动时期的参数处理，这时会有一组默认的参数覆盖策略；另一种是运行期，这里会有另一组默认的参数覆盖策略。</p>
+<p>先看启动时期<code>Dubbo</code>的参数配置覆盖策略：</p>
+<ol>
+<li><code>-D</code>传递给<code>JVM</code>的参数优先级最高，比如<code>-Ddubbo.protocol.port=20882</code>；</li>
+<li>代码（基于注解）或<code>XML</code>配置优先级次之，比如在<code>Spring</code>的<code>XML</code>文件中指定<code>&lt;dubbo:protocol port=&quot;20881&quot;/&gt;</code>；</li>
+<li>配置文件优先级最低，比如<code>dubbo.properties</code>文件指定<code>dubbo.protocol.port=20880</code>；</li>
+</ol>
+<p>一般我们考虑使用<code>dubbo.properties</code>作为默认配置。</p>
+<p>再看运行期，一句话总结<code>Dubbo</code>的运行期配置覆盖策略：<code>override &gt; -D &gt; Consumer &gt; Provider</code>（具体参考<code>RegistryDirectory#mergeUrl()</code>的源码）。</p>
+<p>这个是<code>Dubbo</code>内部对配置的默认处理优先级，<code>override</code>最高，这个是通过<code>override://xxx</code>协议来操作的，主要是用来在<code>dubbo-admin</code>中对服务的参数进行调整，也可以理解为动态服务治理时使用该协议来对参数进行动态的调整。</p>
+<p>其次是<code>-D</code>传递给<code>JVM</code>的参数，这个不难理解，因为启动时<code>-D</code>是优先级最高的，确切的说，这里应该是对启动完成时最终确定的参数。</p>
+<p>再次就是<code>Consumer</code>的参数了，最后是<code>Provider</code>的参数。</p>
+<p><code>Dubbo</code>会按照这些规则对参数进行覆盖处理。</p>
+<h4 id="0x02-dubbo框架分层"><a href="#0x02-dubbo框架分层" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 <code>Dubbo</code>框架分层</h4>
+<p>众所周知，<code>Dubbo</code>是分层良好的框架，乍一看上去挺复杂的，实际上也确实是挺复杂的，不过理解了<code>Dubbo</code>服务的导出和引用过程之后，你就不会再觉得这个分层复杂了。以下是<code>Dubbo</code>框架的分层，内容来自于<code>Dubbo</code>的文档：</p>
+<ul>
+<li><code>config</code>配置层：对外配置接口，以<code>ServiceConfig</code>、<code>ReferenceConfig</code>为中心，可以直接初始化配置类，也可能通过<code>Spring</code>解析配置生成配置类；</li>
+<li><code>proxy</code>服务代理层：服务接口透明代理，生成服务的客户端<code>Stub</code>和服务端<code>Skeleton</code>，以<code>ServiceProxy</code>为中心，扩展接口为<code>ProxyFactory</code>；</li>
+<li><code>registry</code>注册中心层：封装服务地址的注册与发现，以服务<code>URL</code>为中心，扩展接口为<code>RegistryFactory</code>、<code>Registry</code>、<code>RegistryService</code>；</li>
+<li><code>cluster</code>路由层：封装多个提供者的路由及负载均衡，并桥接注册中心，以<code>Invoker</code>为中心，扩展接口为<code>Cluster</code>、<code>Directory</code>、<code>Router</code>、<code>LoadBalance</code>；</li>
+<li><code>monitor</code>监控层：<code>RPC</code>调用次数和调用时间监控，以<code>Statistics</code>为中心， 扩展接口为<code>MonitoryFactory</code>、<code>Monitor</code>，<code>MonitorService</code>；</li>
+<li><code>protocol</code>远程调用层：封装<code>RPC</code>调用，以<code>Invocation</code>、<code>Result</code>为中心，扩展接口为<code>Protocol</code>、<code>Invoker</code>、<code>Exporter</code>；</li>
+<li><code>exchange</code>信息交换层：封装请求响应模式，同步转异步，以<code>Request</code>、<code>Response</code>为中心，扩展接口为<code>Exchanger</code>、<code>ExchangeChannel</code>、<code>ExchangeClient</code>、<code>ExchangeServer</code>；</li>
+<li><code>transport</code>网络传输层：抽象<code>mina</code>和<code>netty</code>为统一接口，以<code>Message</code>为中心，扩展接口为<code>Channel</code>、<code>Transporter</code>、<code>Client</code>、<code>Server</code>、<code>Codec</code>；</li>
+<li><code>serialize</code>数据序列化层：可复用的一些工具，扩展接口为<code>Serialization</code>、<code>ObjectInput</code>、<code>ObjectOutput</code>、<code>ThreadPool</code>；</li>
+</ul>
+<p>关系说明：</p>
+<ul>
+<li>在<code>RPC</code>中，<code>Protocol</code>是核心层，也就是只要有<code>Protocol + Invoker + Exporter</code>就可以完成非透明的<code>RPC</code>调用，然后在<code>Invoker</code>的主过程上<code>Filter</code>拦截点；</li>
+<li><code>Cluster</code>是外围概念，所以<code>Cluster</code>的目的是将多个<code>Invoker</code>伪装成一个<code>Invoker</code>，这样其它人只要关注<code>Protocol</code>层的<code>Invoker</code>即可；</li>
+<li><code>Proxy</code>层封装了所有接口的透明化代理，而在其它层都以<code>Invoker</code>为中心，只有到了暴露给用户使用时，才用<code>Proxy</code>将<code>Invoker</code>转成接口，或将接口实现转成<code>Invoker</code>，也就是去掉<code>Proxy</code>层<code>RPC</code>也是可以运行的，只是不那么透明，看起来不像调用本地服务一样调远程服务；</li>
+<li><code>Remoting</code>实现是<code>Dubbo</code>协议的实现，如果选择<code>RMI</code>协议，整个<code>Remoting</code>层都不会用上；<code>Remoting</code>内部再划分为<code>Transport</code>传输层和<code>Exchange</code>信息交换层，<code>Transport</code>层只负责单向消息传输，是对<code>Mina</code>、<code>Netty</code>、<code>Grizzly</code>的抽象，它也可以扩展<code>UDP</code>传输，而<code>Exchange</code>层是在传输层之上封装了<code>Request-Response</code>语义；</li>
+<li><code>Registry</code>和<code>Monitor</code>实际上不算一层，而是一个独立的节点，只是为了全局概览，用层的方式画在一起；</li>
+</ul>
+<h4 id="0x03-dubbo服务的导出分析"><a href="#0x03-dubbo服务的导出分析" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 <code>Dubbo</code>服务的导出分析</h4>
+<p>这里以之前<code>SPI</code>篇中写的示例来分析吧，<code>EchoProvider</code>的代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-Java" data-lang="Java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EchoProvider</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
+        ServiceConfig<span style="color:#f92672">&lt;</span>EchoServiceImpl<span style="color:#f92672">&gt;</span> service <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ServiceConfig<span style="color:#f92672">&lt;&gt;();</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setInterface</span><span style="color:#f92672">(</span>EchoService<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setRef</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> EchoServiceImpl<span style="color:#f92672">());</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setApplication</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ApplicationConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;echo-provider&#34;</span><span style="color:#f92672">));</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setRegistry</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> RegistryConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;zookeeper://127.0.0.1:2181&#34;</span><span style="color:#f92672">));</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">setSerialization</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;protostuff&#34;</span><span style="color:#f92672">);</span>
+        service<span style="color:#f92672">.</span><span style="color:#a6e22e">export</span><span style="color:#f92672">();</span>
+
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dubbo service started&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">new</span> CountDownLatch<span style="color:#f92672">(</span>1<span style="color:#f92672">).</span><span style="color:#a6e22e">await</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>ServiceConfig</code>类是<code>API</code>类型的，也就是说它是用来给使用者使用的。我们先创建了一个<code>ServiceConfig</code>对象，然后进行服务相关的配置，接着调用了<code>service.export()</code>方法来对服务进行导出，这个方法就是<code>Dubbo</code>服务导出的入口。</p>
+<p><code>ServiceConfig</code>会准备环境所需的<code>config</code>（检查用户配置，生成默认设置），并检查所需的环境配置，比如<code>ApplicationConfig</code>、<code>ModuleConfig</code>、<code>RegistryConfig</code>、<code>MonitorConfig</code>、<code>ProtocolConfig</code>等。</p>
+<p><code>ServiceConfig</code>初始化时会加载<code>Protocol.class</code>和<code>ProxyFactory.class</code>两个扩展点的自适应扩展，也就是说，实际上，这两个扩展加载时返回的是两个在内存动态生成的<code>Apaptive</code>对象：<code>Protocol$Adaptive</code>和<code>ProxyFactory$Adaptive</code>，具体的过程在之前的<code>SPI</code>篇中详细的分析过<code>dubbo</code>的扩展加载特性；这两个对象一定要清楚，否则，后面的过程很多代码无法关联上；动态生成的这两个<code>Adaptive</code>类其实是一个包装类，它们的职责很简单，会根据<code>url</code>的参数动态的返回对应的扩展实现。下面是两个自适应类的代码：</p>
+<p><code>Protocol$Adaptive</code>：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.rpc<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Exporter<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Invoker<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Protocol<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.RpcException<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Protocol$Adaptive</span>
+<span style="color:#66d9ef">implements</span> Protocol <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">public</span> Invoker <span style="color:#a6e22e">refer</span><span style="color:#f92672">(</span>Class class_<span style="color:#f92672">,</span> URL uRL<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        String string<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string2 <span style="color:#f92672">=</span> string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;dubbo&#34;</span> <span style="color:#f92672">:</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.Protocol) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([protocol])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Protocol protocol <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">refer</span><span style="color:#f92672">(</span>class_<span style="color:#f92672">,</span> uRL<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Exporter <span style="color:#a6e22e">export</span><span style="color:#f92672">(</span>Invoker invoker<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        String string<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument getUrl() == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL <span style="color:#f92672">=</span> invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">();</span>
+        String string2 <span style="color:#f92672">=</span> string <span style="color:#f92672">=</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;dubbo&#34;</span> <span style="color:#f92672">:</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.Protocol) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([protocol])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Protocol protocol <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> protocol<span style="color:#f92672">.</span><span style="color:#a6e22e">export</span><span style="color:#f92672">(</span>invoker<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">destroy</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> UnsupportedOperationException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;method public abstract void com.alibaba.dubbo.rpc.Protocol.destroy() of interface com.alibaba.dubbo.rpc.Protocol is not adaptive method!&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getDefaultPort</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> UnsupportedOperationException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;method public abstract int com.alibaba.dubbo.rpc.Protocol.getDefaultPort() of interface com.alibaba.dubbo.rpc.Protocol is not adaptive method!&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>ProxyFactory$Adaptive</code>：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.rpc<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.Invoker<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.ProxyFactory<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.rpc.RpcException<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ProxyFactory$Adaptive</span>
+<span style="color:#66d9ef">implements</span> ProxyFactory <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">public</span> Object <span style="color:#a6e22e">getProxy</span><span style="color:#f92672">(</span>Invoker invoker<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument getUrl() == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL <span style="color:#f92672">=</span> invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">();</span>
+        String string <span style="color:#f92672">=</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;proxy&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;javassist&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.ProxyFactory) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([proxy])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        ProxyFactory proxyFactory <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>ProxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> proxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getProxy</span><span style="color:#f92672">(</span>invoker<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Object <span style="color:#a6e22e">getProxy</span><span style="color:#f92672">(</span>Invoker invoker<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> bl<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.alibaba.dubbo.rpc.Invoker argument getUrl() == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL <span style="color:#f92672">=</span> invoker<span style="color:#f92672">.</span><span style="color:#a6e22e">getUrl</span><span style="color:#f92672">();</span>
+        String string <span style="color:#f92672">=</span> uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;proxy&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;javassist&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.ProxyFactory) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([proxy])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        ProxyFactory proxyFactory <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>ProxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> proxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getProxy</span><span style="color:#f92672">(</span>invoker<span style="color:#f92672">,</span> bl<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Invoker <span style="color:#a6e22e">getInvoker</span><span style="color:#f92672">(</span>Object object<span style="color:#f92672">,</span> Class class_<span style="color:#f92672">,</span> URL uRL<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RpcException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;proxy&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;javassist&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.rpc.ProxyFactory) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([proxy])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        ProxyFactory proxyFactory <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>ProxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> proxyFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getInvoker</span><span style="color:#f92672">(</span>object<span style="color:#f92672">,</span> class_<span style="color:#f92672">,</span> uRL<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>其实，在<code>Dubbo</code>的源码中可以看到有一些<code>@Adaptive</code>标注的类，但是不多，这些类的结构非常相似，可能是<code>Dubbo</code>的开发者后续发现了这些相似性，所以采用了自适应方式的设计来直接在内存中动态的生成，这样避免了大量重复结构的代码。</p>
+<p><code>export()</code>方法简单的处理后，直接调用了<code>doExport()</code>方法，<code>doExport()</code>方法做了大量的参数校验和初始化，然后调用<code>doExportUrls()</code>方法开始对服务做导出。</p>
+<p>首先，它会加载注册中心：<code>loadRegistries(true)</code>。先解析配置的注册中心（可以是多个）到<code>AbstractInterfaceConfig#registries</code>列表中，然后循环<code>registries</code>列表，根据配置的参数来组装注册链接<code>URL</code>列表（<code>dubbo</code>的配置信息封装为<code>URL</code>对象）。</p>
+<p>加载注册中心时会动态生成<code>RegistryFactory</code>扩展点的自适应对象，代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.registry<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.registry.Registry<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.registry.RegistryFactory<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RegistryFactory$Adaptive</span>
+<span style="color:#66d9ef">implements</span> RegistryFactory <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> Registry <span style="color:#a6e22e">getRegistry</span><span style="color:#f92672">(</span>URL uRL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        String string<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string2 <span style="color:#f92672">=</span> string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;dubbo&#34;</span> <span style="color:#f92672">:</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getProtocol</span><span style="color:#f92672">();</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.registry.RegistryFactory) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([protocol])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        RegistryFactory registryFactory <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>RegistryFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> registryFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">getRegistry</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>接下来，循环<code>ServiceConfig#protocols</code>列表，为配置的<code>protocol</code>组装配置<code>URL</code>并导出服务，在正式<code>export</code>前会组装参数<code>map</code>，同时会解析<code>MethodConfig</code>及<code>ArgumentConfig</code>的配置信息，处理完配置信息，接下来就是真正的<code>export</code>了。</p>
+<p><code>export</code>分为本地导出和远程导出，由参数<code>scope</code>（<code>scope</code>的值有<code>none</code>、<code>local</code>、<code>remote</code>三种）决定，没有指定为<code>remote</code>时会做本地导出，没有指定为<code>local</code>时会做<code>local</code>导出，如果指定为<code>none</code>，则不做导出；本地导出，使用的是<code>InJvmProtocol#export</code>来导出（需要注意的是，<code>protocol</code>扩展对象是在<code>ServiceConfig</code>初始化时，这个加载的过程在之前的<code>SPI</code>篇中已经分析过，这里要注意的是<code>protocol</code>扩展对象会被<code>Wrapper</code>实现包装，并且，在不同的地方还会根据<code>url#protocol</code>参数的变化来动态的加载不同的<code>Protocol.class</code>的扩展实现）；接下来就是远程导出了，远程导出时会对每个配置的<code>protocol</code>去循环前面生成的<code>registryURLs</code>列表，也就是说会远程导出到所有配置的注册中心，这里也要注意，在这里会检查配置的<code>proxy</code>参数，根据配置参数的值加载对应的<code>ProxyFactory.class</code>扩展实现来生成服务的代理对象<code>Invoker.class</code>，<code>Invoker</code>对象是服务的核心（我们暂时不关注具体的细节，后面专门来分析<code>Invoker</code>的核心逻辑），这里要留意在<code>proxyFactory#getInvoker()</code>时，<code>registryURL</code>将具体服务的<code>URL</code>（<code>dubbo://xxxx</code>开头的<code>URL</code>参数）作为<code>export</code>参数加入到了<code>registryURL</code>中，同时，默认使用<code>JavassistProxyFactory</code>扩展实现，返回的结果是通过<code>Wrapper</code>类动态生成的一个包装类<code>Wrapper0</code>；另外，这里循环时的<code>URL</code>是<code>registry</code>协议的<code>URL</code>，所以被<code>Protocol$Adaptive#export</code>处理时，真正做<code>protocol#export</code>的是<code>RegistryProtocol#export</code>，该方法先调用了<code>RegistryProtocol#doLocalExport()</code>，<code>doLocalExport()</code>方法中在第一次时又会通过<code>protocol#export()</code>来做真正的服务导出，这里传入的<code>Invoker</code>对象是一个委托类型的<code>InvokerDelegete</code>对象，该对象在构造方法中会传入服务参数的<code>URL</code>，也就是前面<code>registryURL</code>中的<code>export</code>参数，因为默认服务使用的是<code>dubbo</code>协议，这里的<code>protocol</code>对象是从<code>ServiceConfig</code>传入的，是同一个对象，所以又会调用<code>Protocol$Adaptive#export()</code>方法进行包装处理，而这时的协议为<code>dubbo</code>，所以里面真正做<code>export</code>的<code>protocol</code>实现就是<code>DubboProtocol</code>的实现了。</p>
+<p><code>Wrapper#getWrapper()</code>返回的包装类对象是一个动态拼接，然后在内存中使用<code>javassist</code>编译后再实例化的对象，具体的代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.common.bytecode<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.bytecode.ClassGenerator<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.bytecode.NoSuchMethodException<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.bytecode.NoSuchPropertyException<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.bytecode.Wrapper<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.lang.reflect.InvocationTargetException<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> java.util.Map<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> me.zy.std.dubbo.spi.api.EchoService<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Wrapper0</span>
+<span style="color:#66d9ef">extends</span> Wrapper
+<span style="color:#66d9ef">implements</span> ClassGenerator<span style="color:#f92672">.</span><span style="color:#a6e22e">DC</span> <span style="color:#f92672">{</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> String<span style="color:#f92672">[]</span> pns<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> Map pts<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> String<span style="color:#f92672">[]</span> mns<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> String<span style="color:#f92672">[]</span> dmns<span style="color:#f92672">;</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> Class<span style="color:#f92672">[]</span> mts0<span style="color:#f92672">;</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getPropertyNames</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> pns<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">hasProperty</span><span style="color:#f92672">(</span>String string<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> pts<span style="color:#f92672">.</span><span style="color:#a6e22e">containsKey</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Class <span style="color:#a6e22e">getPropertyType</span><span style="color:#f92672">(</span>String string<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">(</span>Class<span style="color:#f92672">)</span>pts<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getMethodNames</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> mns<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">getDeclaredMethodNames</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> dmns<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setPropertyValue</span><span style="color:#f92672">(</span>Object object<span style="color:#f92672">,</span> String string<span style="color:#f92672">,</span> Object object2<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            EchoService echoService <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>EchoService<span style="color:#f92672">)</span>object<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable throwable<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span>throwable<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> NoSuchPropertyException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Not found property \&#34;&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>string<span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\&#34; filed or setter method in class me.zy.std.dubbo.spi.api.EchoService.&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> Object <span style="color:#a6e22e">getPropertyValue</span><span style="color:#f92672">(</span>Object object<span style="color:#f92672">,</span> String string<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            EchoService echoService <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>EchoService<span style="color:#f92672">)</span>object<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable throwable<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span>throwable<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> NoSuchPropertyException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Not found property \&#34;&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>string<span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\&#34; filed or setter method in class me.zy.std.dubbo.spi.api.EchoService.&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> Object <span style="color:#a6e22e">invokeMethod</span><span style="color:#f92672">(</span>Object object<span style="color:#f92672">,</span> String string<span style="color:#f92672">,</span> Class<span style="color:#f92672">[]</span> arrclass<span style="color:#f92672">,</span> Object<span style="color:#f92672">[]</span> arrobject<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InvocationTargetException <span style="color:#f92672">{</span>
+        EchoService echoService<span style="color:#f92672">;</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            echoService <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>EchoService<span style="color:#f92672">)</span>object<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable throwable<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span>throwable<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span><span style="color:#e6db74">&#34;echo&#34;</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>string<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> arrclass<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">==</span> 1<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+                <span style="color:#66d9ef">return</span> echoService<span style="color:#f92672">.</span><span style="color:#a6e22e">echo</span><span style="color:#f92672">((</span>String<span style="color:#f92672">)</span>arrobject<span style="color:#f92672">[</span>0<span style="color:#f92672">]);</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Throwable throwable<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> InvocationTargetException<span style="color:#f92672">(</span>throwable<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> NoSuchMethodException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Not found method \&#34;&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>string<span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;\&#34; in class me.zy.std.dubbo.spi.api.EchoService.&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>具体到<code>DubboProtocol</code>协议中导出时，首先会根据服务的参数<code>URL</code>生成服务的唯一标识<code>serviceKey(url)</code>，然后就是<code>openServer(url)</code>了，第一次会创建<code>ExchangeServer</code>对象，这里会加载<code>Transporter.class</code>扩展实现，默认使用<code>netty</code>实现，<code>ExchangeServer</code>对象是通过<code>Exchangers.bind(url, requestHandler)</code>方法来生成的，在这个<code>bind()</code>方法中，会根据<code>URL</code>的<code>exchanger</code>参数来加载<code>Exchanger.class</code>的扩展实现，默认使用<code>HeaderExchanger</code>的实现，然后调用<code>HeaderExchanger#bind()</code>方法来返回<code>HeaderExchangeServer</code>的<code>ExchangeServer</code>实现，这里又会调用<code>Transporters.bind()</code>来真正的创建<code>Server</code>对象，这里通过自适应的方式来加载<code>Transporter.class</code>扩展实现，默认是<code>netty</code>实现<code>NettyTransporter</code>，在<code>NettyTransporter#bind()</code>方法中，返回了<code>Server</code>的实现<code>NettyServer</code>对象，这样就创建好<code>Server</code>了。在<code>Exchangers#bind()</code>方法创建<code>Server</code>对象时，一同传入的还有一个<code>ExchangeHandler</code>对象参数，该参数是一个抽象类<code>ExchangeHandlerAdapter</code>的实现，该<code>handler</code>在<code>HeaderExchanger</code>中传入<code>Transporters.bind()</code>方法之前会分别被<code>HeaderExchangeHandler</code>和<code>DecodeHandler</code>进行包装，然后在<code>Transporters.bind()</code>中进一步被包装为<code>ChannelHandlerDispatcher</code>，接着传给了<code>NettyServer</code>，在<code>NettyServer</code>中，又被<code>ChannelHandlers#wrapInternal()</code>方法分别用<code>HeartbeatHandler</code>和<code>MultiMessageHandler</code>进行包装，在这里又会通过自适应的方式加载<code>Dispatcher.class</code>扩展实现，这又是一个动态生成的自适应包装类<code>Dispatcher$Adaptive</code>，该自适应类会动态的根据<code>URL</code>中的<code>dispatcher</code>参数来动态的调用对应的<code>Dispather</code>的扩展实现来做<code>dispatch()</code>操作，默认使用<code>AllDispatcher</code>的实现，这里会再一次用<code>AllChannelHandler</code>来对前面传入的<code>handler</code>进行包装。在前面的步骤中，生成<code>NettyServer</code>对象时，在<code>NettyServer</code>的构造方法中调用了父类的构造方法，也就是<code>AbstractServer</code>的构造方法，这个构造方法回调了子类的<code>doOpen()</code>方法，也就是<code>NettyServer#doOpen()</code>方法，这里就正式的启动了<code>Netty</code>服务器。<code>Netty</code>服务器会绑定<code>Codec2</code>扩展实现，默认使用<code>telnet</code>实现，但<code>DubbpProtocol</code>中指定了<code>codec</code>为<code>dubbo</code>，所以这里会加载<code>DubboCountCodec</code>的实现，在<code>Netty</code>服务器中，<code>codec</code>被封装到<code>NettyCodecAdapter</code>适配器对象中，同时，该对象实现了<code>Netty</code>的编码和解码器<code>handler</code>，编解码器通过回调<code>Codec2</code>中的<code>encode()</code>和<code>decode()</code>方法来做编解码处理，<code>DubboCountCodec</code>又调用<code>DubboCodec</code>的实现，<code>DubboCodec</code>中会加载<code>Serialization.class</code>扩展实现来进行不同协议的编解码操作，解码是在<code>ExchangeCodec#decodeBody()</code>方法中，调用<code>CodecSupport.deserialize()</code>方法时动态加载<code>Serialization.class</code>的扩展实现的。</p>
+<p>上面的<code>Transporter</code>扩展点动态生成的自适应类，代码如下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.remoting<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.ChannelHandler<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.Client<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.RemotingException<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.Server<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.Transporter<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Transporter$Adaptive</span>
+<span style="color:#66d9ef">implements</span> Transporter <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> Server <span style="color:#a6e22e">bind</span><span style="color:#f92672">(</span>URL uRL<span style="color:#f92672">,</span> ChannelHandler channelHandler<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RemotingException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;server&#34;</span><span style="color:#f92672">,</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;transporter&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;netty&#34;</span><span style="color:#f92672">));</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.remoting.Transporter) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([server, transporter])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Transporter transporter <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Transporter<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> transporter<span style="color:#f92672">.</span><span style="color:#a6e22e">bind</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">,</span> channelHandler<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> Client <span style="color:#a6e22e">connect</span><span style="color:#f92672">(</span>URL uRL<span style="color:#f92672">,</span> ChannelHandler channelHandler<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> RemotingException <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;client&#34;</span><span style="color:#f92672">,</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;transporter&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;netty&#34;</span><span style="color:#f92672">));</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.remoting.Transporter) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([client, transporter])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Transporter transporter <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Transporter<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> transporter<span style="color:#f92672">.</span><span style="color:#a6e22e">connect</span><span style="color:#f92672">(</span>uRL<span style="color:#f92672">,</span> channelHandler<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>Dispatcher</code>扩展点的自适应类，这里可以注意一下获取多个配置参数的处理：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#f92672">package</span> com.alibaba.dubbo.remoting<span style="color:#f92672">;</span>
+
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.URL<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.common.extension.ExtensionLoader<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.ChannelHandler<span style="color:#f92672">;</span>
+<span style="color:#f92672">import</span> com.alibaba.dubbo.remoting.Dispatcher<span style="color:#f92672">;</span>
+
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Dispatcher$Adaptive</span> <span style="color:#66d9ef">implements</span> Dispatcher <span style="color:#f92672">{</span>
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> ChannelHandler <span style="color:#a6e22e">dispatch</span><span style="color:#f92672">(</span>ChannelHandler channelHandler<span style="color:#f92672">,</span> URL uRL<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>uRL <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;url == null&#34;</span><span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span>
+        URL uRL2 <span style="color:#f92672">=</span> uRL<span style="color:#f92672">;</span>
+        String string <span style="color:#f92672">=</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dispatcher&#34;</span><span style="color:#f92672">,</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dispather&#34;</span><span style="color:#f92672">,</span> uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">getParameter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;channel.handler&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;all&#34;</span><span style="color:#f92672">)));</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>string <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalStateException<span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> StringBuffer<span style="color:#f92672">().</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;Fail to get extension(com.alibaba.dubbo.remoting.Dispatcher) name from url(&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>uRL2<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;) use keys([dispatcher, dispather, channel.handler])&#34;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span>
+        Dispatcher dispatcher <span style="color:#f92672">=</span> ExtensionLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">getExtensionLoader</span><span style="color:#f92672">(</span>Dispatcher<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">).</span><span style="color:#a6e22e">getExtension</span><span style="color:#f92672">(</span>string<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">return</span> dispatcher<span style="color:#f92672">.</span><span style="color:#a6e22e">dispatch</span><span style="color:#f92672">(</span>channelHandler<span style="color:#f92672">,</span> uRL<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>DubboProtocol#export()</code>完成后会回到<code>RegistryProtocol#export()</code>方法中继续服务的注册流程，<code>RegistryProtocol#getRegistry()</code>方法会根据<code>registryUrl</code>的<code>registry</code>参数传入的值来动态加载<code>Registry</code>的扩展实现，这里是通过<code>RegistryFactory</code>的扩展实现来创建<code>Registry</code>对象的，<code>RegistryFactory</code>是<code>RegistryProtocol</code>扩展在实例化阶段通过<code>ExtensionLoader#injectExtension()</code>方法注入的一个动态的自适应扩展包装类<code>RegistryFactory$Adaptive</code>，该类会根据传入的<code>registryUrl</code>对象的<code>protocol</code>参数来动态加载<code>Registry</code>的扩展实现，创建<code>Registry</code>对象后，会生成<code>registeredProviderUrl</code>对象，这是服务提供者的参数<code>URL</code>对象，然后<code>ProviderConsumerRegTable#registerProvider()</code>方法会将<code>Invoker</code>、<code>registryUrl</code>及<code>providerUrl</code>对象包装为<code>ProviderInvokerWrapper</code>对象，并缓存在本地，然后调用前面创建的<code>Registry</code>对象实例来做注册操作，我们这里使用的是<code>zookeeper</code>，所以此时会调用<code>ZookeeperRegistry#doRegister()</code>方法来注册要导出的服务，本质上就是在<code>ZooKeeper</code>上创建路径节点，<code>ZookeeperRegistry</code>在实例化时，会动态获取<code>ZookeeperTransporter</code>的扩展实现，默认为<code>curator</code>的实现，<code>ZookeeperTransporter</code>的创建同样也是通过自适应的方式生成自适应的包装类<code>ZookeeperTransporter$Adaptive</code>，然后通过<code>client</code>参数和<code>transporter</code>参数来动态加载<code>ZookeeperTransporter</code>的实现。注册成功后会将<code>ProviderConsumerRegTable</code>中对应的<code>ProviderInvokerWrapper</code>包装类的<code>isReg</code>设置为<code>true</code>。随后，还创建了<code>OverrideListener</code>监听器来监听服务的重载，通过<code>ZookeeperRegistry</code>在<code>ZooKeeper</code>上创建节点来订阅服务端服务的变更通知，这样，当服务端发布的服务发生变更时，服务端通过<code>ZooKeeper</code>上注册的对应的客户端列表来通知服务的变更，此时<code>CuratorZookeeperClient</code>会接收到<code>WatchedEvent</code>事件，然后回调注册的<code>OverrideListener#notify()</code>方法，该方法又回调用<code>RegistryProtocol#doChangeLocalExport()</code>方法，<code>doChangeLocalExport()</code>方法会重新用<code>newInvokerUrl</code>参数来重新注册变更的服务。这样，整个服务注册的流程基本上完全清晰了。</p>
+<p>下面的图片是<code>Dubbo</code>服务导出的时序图：</p>
+<p><img src="img/15952963921582.jpg" alt=""></p>
+<h4 id="0x04-dubbo服务的引用分析"><a href="#0x04-dubbo服务的引用分析" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x04 <code>Dubbo</code>服务的引用分析</h4>
+<p>这里还是以<code>SPI</code>篇中的示例来来分析：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EchoConsumer</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
+        ReferenceConfig<span style="color:#f92672">&lt;</span>EchoService<span style="color:#f92672">&gt;</span> reference <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ReferenceConfig<span style="color:#f92672">&lt;&gt;();</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setApplication</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ApplicationConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;echo-service&#34;</span><span style="color:#f92672">));</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setRegistry</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> RegistryConfig<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;zookeeper://127.0.0.1:2181&#34;</span><span style="color:#f92672">));</span>
+        reference<span style="color:#f92672">.</span><span style="color:#a6e22e">setInterface</span><span style="color:#f92672">(</span>EchoService<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+        EchoService service <span style="color:#f92672">=</span> reference<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+        String message <span style="color:#f92672">=</span> service<span style="color:#f92672">.</span><span style="color:#a6e22e">echo</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;dubbo&#34;</span><span style="color:#f92672">);</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>message<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">new</span> CountDownLatch<span style="color:#f92672">(</span>1<span style="color:#f92672">).</span><span style="color:#a6e22e">await</span><span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p><code>Dubbo</code>的服务引用逻辑与导出大致相似，首先也是通过<code>ReferenceConfig</code>来配置服务引用的各种参数，如<code>application config</code>、<code>module config</code>、<code>consumer config</code>等。</p>
+<p><code>ReferenceConfig#init()</code>初始化各种参数，然后调用<code>createProxy()</code>方法来创建代理对象，重点就在这个<code>createProxy()</code>方法中了。</p>
+<p>首先，它会判断调用的方式，这里有三种情况：同一<code>JVM</code>内调用、通过指定的<code>url</code>直连、通过注册中心调用。无论是哪种方式，最终都是返回一个<code>Invoker</code>对象出来（<code>Invoker</code>是<code>Dubbo</code>的核心领域对象）。三种方式的入口都是<code>Protocol$Adaptive#refer()</code>方法，这是一个动态生成的自适应类，<code>refer()</code>方法会根据<code>URL</code>的<code>protocol</code>参数来动态加载<code>Protocol</code>的扩展实现，默认是<code>dubbo</code>的实现，通过注册中心调用时，首先会加载<code>RegistryProtocol</code>的实现，这里会获取注册中心的实例<code>Registry</code>，然后调用<code>doRefer()</code>方法继续执行<code>refer</code>的逻辑，<code>doRefer()</code>方法中，首先会创建<code>RegistryDirectory</code>实例，然后绑定<code>registry</code>和<code>protocol</code>，组装<code>subscribeUrl</code>，接着会向注册中心注册<code>registry.register(registeredConsumerUrl)</code>，注册的<code>URL</code>也会绑定到<code>directory</code>，再接下来会调用<code>directory.subscribe()</code>方法来订阅<code>providers</code>、<code>configurators</code>、<code>routers</code>的数据，这里的<code>subscribe()</code>方法调用进去会调用到<code>FailbackRegistry#subscribe()</code>方法，然后会回调到子类<code>ZookeeperRegistry#doSubscribe()</code>方法，这里的逻辑和服务的导出类似，创建<code>zookeeper</code>的路径节点，然后调用<code>notify()</code>方法来通知监听器，<code>notify()</code>方法又会调回父类，然后进一步调回<code>AbstractRegistry#notify()</code>方法，再继续调回到<code>RegistryDirectory#notify()</code>方法，在这里，会调用<code>refreshInvoker()</code>方法刷新<code>invoker</code>，进入到该方法中后，如果有提供者的<code>invokerUrl</code>，则会调用<code>toInvokers()</code>方法来进行转换操作，这里的转换是将<code>invokerUrl</code>转换为具体的<code>invoker</code>对象，这里会动态加载<code>Protocol</code>的自适应对象，返回的是自适应对象<code>Protocol$Adaptive</code>，它会根据<code>protocol</code>参数来动态的返回具体的<code>Protocol</code>实现，默认是<code>dubbo</code>，也就是会返回<code>DubboProtocol</code>实现，然后会有一个参数合并的过程，这里有根据默认的覆盖规则（<code>override &gt; -D &gt;Consumer &gt; Provider</code>）进行一些处理，然后再进一步做判断，之后会创建一个<code>InvokerDelegate</code>对象，该对象的构造方法中的其中一个参数就是<code>DubboProtocol#refer()</code>的返回值，到这里，服务引用的调用就到了<code>DubboProtocol#refer()</code>方法，这里返回的是<code>DubboInvoker</code>的包装对象，包装之前，会调用<code>getClients()</code>方法来创建<code>ExchangeClient</code>对象，这里面会判断是否共享连接，然后首次还会调用<code>initClient()</code>方法来创建新的连接，<code>initClient()</code>方法中会绑定<code>client</code>参数（默认为<code>netty</code>），<code>codec</code>参数（默认为<code>dubbo</code>），<code>heartbeat</code>参数（默认为<code>60000</code>），然后会生成<code>Transporter$Adaptive</code>对象根据参数<code>client</code>动态的加载<code>Transporter</code>扩展，真正的连接是在<code>Exchangers#connect()</code>方法中，先获取<code>Exchanger</code>的扩展实现，然后再进行<code>connect()</code>，这里的逻辑和前面服务导出部分的<code>bind()</code>的逻辑非常相似，只不过一个是<code>bind()</code>方法，一个是<code>connect()</code>方法，经过一系列的包装，最终会创建<code>NettyClient</code>对象，然后经过层层的包装后返回，到这里，<code>invoker</code>对象还没包装完，这里只是处理完了<code>directory#subscribe()</code>的逻辑，<code>subscribe()</code>完成后，还会进一步使用<code>Cluster</code>扩展进行包装，<code>Cluster$Adaptive</code>自适应类会根据<code>cluster</code>参数来动态加载具体的扩展实现，默认为<code>failover</code>的实现，<code>Cluster</code>扩展在加载时，也有一个<code>Wrapper</code>会自动包装，它就是<code>MockClusterWrapper</code>，这里会包装成一个<code>MockClusterInvoker</code>返回（包装了服务降级的处理），里面才是调用<code>FailoverCluster#join()</code>，这里又会包装成一个<code>FailoverClusterInvoker</code>对象（包装了负载均衡的处理，即<code>LoadBalance</code>扩展，以及失败重试的处理，默认最多调用三次），到这里，服务引用时的<code>invoker</code>对象才算是真正的创建完成了。有了<code>invoker</code>对象之后，还会调用<code>ProviderConsumerRegTable#registerConsumer()</code>方法来将服务消费者注册到本地。有了<code>invoker</code>对象，下一步就回到了<code>ReferenceConfig#createProxy()</code>方法，这里还有最后一步，使用<code>ProxyFactory#getProxy()</code>来获取代理对象，<code>ProxyFactory$Adaptive#getProxy()</code>方法会根据<code>proxy</code>参数动态的加载具体的扩展实现，默认是<code>javassist</code>的实现，这里又回到前面分析过的<code>JavassistProxyFactory#getProxy()</code>方法的调用了，它会返回包装好的代理对象。</p>
+<p>一些相关的扩展点的自适应类的代码与服务导出时生成的是一样的，参考上面贴的代码就行了。</p>
+<p>下面的图片是<code>Dubbo</code>服务引用的时序图：</p>
+<p><img src="img/15953077811809.jpg" alt=""></p>
+<h4 id="0x05-微内核加插件式的架构"><a href="#0x05-微内核加插件式的架构" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x05 微内核加插件式的架构</h4>
+<p>到这里，服务的导出和服务的引用流程就分析完了，其实这里面还有很多的细节，比如，根据<code>URL</code>的参数做一些动态的处理逻辑，光是内置的参数就已经很多了，而且很多的参数都是支持一些不同的策略的，所以这里面的一些处理逻辑很多。另外，无论是服务的导出，还是服务的引用，最后真正调用的都是一个代理对象，这个代理对象是对<code>Invoker</code>对象的包装，这里面还包括了过滤器链的加载和处理，以及到具体的<code>Transporter</code>实现时的各种<code>Handler</code>的层层包装，整个逻辑比较复杂，<code>Invoker</code>是<code>Dubbo</code>框架的核心领域对象，这个后面会专门分析。</p>
+<p>再回过头来看<code>Dubbo</code>服务的导出和引用的时序图，我用绿色标出了<code>Dubbo</code>的扩展点，你会发现，使用<code>Dubbo</code>框架时，除了环境配置使用的是相关的<code>API</code>对象之后，其它的流程全部是基于扩展点之前的调用，换句话说就是，<code>Dubbo</code>真正的服务导出和服务引用全部是基于抽象（这些抽象全部都是<code>Dubbo</code>框架的扩展点，可以随时自由扩展）的实现，这就是框架的高层设计，在这一点上，<code>Dubbo</code>框架封装得非常漂亮，完全基于抽象之间的调用来组装框架的处理流程，而真正的逻辑处理则是通过插件（这里抽象的具体实现）的方式来实现的，在使用的过程中，按照自己的需要去配置好要使用的具体实现即可，就算你不配置，<code>Dubbo</code>也会提供默认的实现，对使用者友好。<code>Dubbo</code>这里基于扩展点的抽象设计组装主流程，具体实现交给插件实现的模式就是现在非常流行的微内核加插件的模式（<code>microkernel + plugin</code>），对于我们开发一个框架，非常具有借鉴的意义。</p>
+<h4 id="0x06-总结"><a href="#0x06-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x06 总结</h4>
+<p>对于<code>Dubbo</code>的服务导出和引用的过程分析，我这里没有贴出<code>Dubbo</code>具体步骤的相关代码，一方面是贴出来代码太多了，另一方面，我已经把详细的调用链写出来了，看的时候只需要对照我上面说的入口和相关的方法调用的过程就已经很清晰了。</p>
+<p>分析<code>Dubbo</code>服务导出时，因为很多的控制类是在内存中动态处理的，还有一些是在内存中拼接源码字符串，然后在内存中编译，再反射创建对象的（比如<code>Wrapper#getWrapper()</code>），对于这些类的源码看不到的时候，心里会有一种莫名的不踏实感，好在后来找到了阿里开源的<a href="https://github.com/alibaba/arthas" target="_blank" rel="noopener"><code>Arthas</code></a>框架，通过<code>arthas</code>可以动态的查找<code>JVM</code>中生成的类、反编译这些类的源码、实时监控方法的返回值等，功能非常强大，太感谢阿里团队了。</p>
+<p>也正是因为这些动态生成的类不太清楚的原因，所以在分析服务导出的时候浪费了一些时间，不过找到了解决办法之后，一切都变得简单轻快了。</p>
+<p>其实那些<code>Xxxx$Adaptive</code>自适应类生成出来的模式非常相似，本质上就是配置<code>URL</code>中的参数值来动态加载不同的扩展实现，没看到源码的时候心里总不踏实，看多了之后基本上也就不用看了。</p>
+<p>尤其是<code>Wrapper#getWrapper()</code>那里，开始我是去拼出来的，后来还去看了<code>javassist</code>的文档（不看文档没办法理解里面的一些特殊符号的意义），基本上把<code>Wrapper0</code>的源码分析出来了，但是因为对<code>javassist</code>不是特别熟悉，心里老纠结会不会没拼对，后来使用<code>arthas</code>反编译之后发现拼对了，这才踏实了。</p>
+<p>分析完导出和引用的流程后，对照<code>Dubbo</code>文档画了一次这两个操作的时序图，然后顺序把扩展点用绿色标识了出来，现在你再回过头去看两张时序图，你会发现除了<code>Dubbo</code>暴露给用户配置用的<code>API</code>（<code>Config</code>相关的对象）之外，其它的流程全部是通过扩展点来处理的，也就是说，<code>Dubbo</code>通过抽象的扩展点来封装了框架的主流程，但具体的处理逻辑交给了扩展点的具体实现，这些实现可以是<code>Dubbo</code>自己实现的，也可以是任何第三方实现的，这样就使得<code>Dubbo</code>框架具有了非常良好的可扩展性。</p>
+<p>此外，<code>Dubbo</code>框架的源码中还使用了非常多的设计模式来解决不同的问题，比如代理模式、装饰模式、委托模式、过滤器链模式、模板方法模式等等，非常的多，这些东西都值得我们去分析学习。</p>
+<p>到这里，<code>Dubbo</code>框架的一些大致的流程和机制都分析清楚了，剩下还有<code>Proxy</code>和<code>Invoker</code>相关的核心领域对象没有完整的分析（其实在分析导出的时候，我没按捺住，追着代码已经分析了一部分了），后续会对这个核心域进行分析。</p>
+<p>好了，这篇就到此为止了，欢迎各种反馈和交流！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References:</h5>
+<ol>
+<li><em><a href="https://dubbo.apache.org/" target="_blank" rel="noopener">Dubbo</a></em></li>
+<li><em><a href="https://github.com/alibaba/arthas" target="_blank" rel="noopener">Arthas</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/dubbo-export-refer-analysis/" target="_blank" rel="noopener">https://zhaoyang.me/posts/dubbo-export-refer-analysis/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-dubbo-spi/" class="related-link">读源码学架构系列：SPI之Dubbo实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/totp-algorithm/" class="related-link">动态密码TOTP</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-isp/" class="related-link">读源码学架构系列：接口隔离原则</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-ood-dip/" class="related-link">读源码学架构系列：依赖倒置原则</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/dubbo/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>Dubbo</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-training-pressure-test-toy/" rel="prev">&lt; 设计一个简单的压力测试工具</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/totp-algorithm/" rel="next">动态密码TOTP &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/architecture/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/architecture/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/design/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/golang/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-training-pressure-test-toy/</loc>
+    <lastmod>2020-07-24T09:38:02+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/dubbo/</loc>
+    <lastmod>2020-07-23T10:04:35+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/framework/</loc>
+    <lastmod>2020-07-23T10:04:35+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/dubbo-export-refer-analysis/</loc>
+    <lastmod>2020-07-23T10:04:35+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/algorithm/</loc>
+    <lastmod>2020-07-23T10:23:39+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/protocol/</loc>
+    <lastmod>2020-07-23T10:23:39+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/totp/</loc>
+    <lastmod>2020-07-23T10:23:39+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/totp-algorithm/</loc>
+    <lastmod>2020-07-23T10:23:39+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/ood-principles/</loc>
+    <lastmod>2020-07-09T10:00:51+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/ood-principles/</loc>
+    <lastmod>2020-07-09T10:00:51+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/solid/</loc>
+    <lastmod>2020-07-09T10:00:51+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-isp/</loc>
+    <lastmod>2020-07-09T10:00:51+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-dip/</loc>
+    <lastmod>2020-07-08T16:49:09+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/design-pattern/</loc>
+    <lastmod>2020-07-07T17:46:20+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/design-pattern/</loc>
+    <lastmod>2020-07-07T17:46:20+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-design-pattern-singleton/</loc>
+    <lastmod>2020-07-07T17:46:20+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/consistent-hash/</loc>
+    <lastmod>2020-07-17T09:51:00+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/consistent-hash-algorithm/</loc>
+    <lastmod>2020-07-17T09:51:00+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-lsp/</loc>
+    <lastmod>2020-07-08T11:31:33+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-ocp/</loc>
+    <lastmod>2020-07-03T14:45:34+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-srp/</loc>
+    <lastmod>2020-07-03T14:45:43+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-ood-solid/</loc>
+    <lastmod>2020-07-03T14:45:51+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/microkernel/</loc>
+    <lastmod>2020-07-17T08:53:19+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/spi/</loc>
+    <lastmod>2020-07-17T08:53:19+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/spi/</loc>
+    <lastmod>2020-07-17T08:53:19+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-dubbo-spi/</loc>
+    <lastmod>2020-07-17T08:53:19+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/spring/</loc>
+    <lastmod>2020-07-03T14:47:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-spring-spi/</loc>
+    <lastmod>2020-07-03T14:47:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-jdk-spi/</loc>
+    <lastmod>2020-07-03T14:46:53+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/architecture-from-source-code-guidelines/</loc>
+    <lastmod>2020-06-19T15:54:10+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/about/</loc>
+    <lastmod>2020-06-18T10:29:26+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/categories/startup/</loc>
+    <lastmod>2020-06-18T17:02:33+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/tags/wechat/</loc>
+    <lastmod>2020-06-18T17:02:33+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://zhaoyang.me/posts/wx-shake-design/</loc>
+    <lastmod>2020-06-18T17:02:33+08:00</lastmod>
+  </url>
+  
+</urlset>

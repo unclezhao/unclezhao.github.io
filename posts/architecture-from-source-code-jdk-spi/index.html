@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article#">
+    <meta charset="UTF-8" />
+
+    <meta name="generator" content="Hugo 0.72.0" /><meta name="theme-color" content="#fff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    
+    <meta http-equiv="Cache-Control" content="no-transform" />
+    
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+
+    <title>读源码学架构系列：SPI之JDK实现 | Understanding Architecture</title>
+
+    <link rel="stylesheet" href="/css/meme.min.dfbafe9fc8f736a329090c8d63f61ef4a24fcf4245248ec1b09b6c2207f9207c.css" integrity="sha256-37r&#43;n8j3NqMpCQyNY/Ye9KJPz0JFJI7BsJtsIgf5IHw=" />
+
+    
+    <script src="/js/meme.min.8bac6518ec46cc471d75d0f8dc2e5963321c427e57a552727df0c9114bae2ae6.js" integrity="sha256-i6xlGOxGzEcdddD43C5ZYzIcQn5XpVJyffDJEUuuKuY="></script>
+
+
+    
+
+    <meta name="author" content="赵洋" /><meta name="description" content="TL;DR 开篇提到了good design，那如何评价一个设计是不是好的设计呢？其中很重要的一……
+    
+    " />
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#2a6df4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Understanding Architecture" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Understanding Architecture" />
+    <meta name="msapplication-starturl" content="../../" />
+    <meta name="msapplication-TileColor" content="#fff" />
+    <meta name="msapplication-TileImage" content="../../icons/mstile-150x150.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    
+    
+
+    
+    <link rel="canonical" href="https://zhaoyang.me/posts/architecture-from-source-code-jdk-spi/" />
+    
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "datePublished": "2020-06-17T11:48:53+08:00",
+        "dateModified": "2020-07-03T14:46:53+08:00",
+        "url": "https://zhaoyang.me/posts/architecture-from-source-code-jdk-spi/",
+        "headline": "读源码学架构系列：SPI之JDK实现",
+        "description": "TL;DR 开篇提到了good design，那如何评价一个设计是不是好的设计呢？其中很重要的一……\n    \n    ",
+        "inLanguage" : "zh-CN",
+        "articleSection": "posts",
+        "wordCount":  7085 ,
+        "image": ["https://zhaoyang.me/img/15925485964882.jpg","https://zhaoyang.me/img/15925358417076.jpg","https://zhaoyang.me/img/15925360292126.jpg","https://zhaoyang.me/img/15925400732852.jpg","https://zhaoyang.me/img/15925405806674.jpg","https://zhaoyang.me/img/15925363833175.jpg","https://zhaoyang.me/img/15925364204669.jpg","https://zhaoyang.me/img/15925371593865.jpg","https://zhaoyang.me/img/15925372106896.jpg","https://zhaoyang.me/img/15925408646269.jpg","https://zhaoyang.me/img/15925411586770.jpg","https://zhaoyang.me/img/15925412104743.jpg","https://zhaoyang.me/img/15925412260019.jpg","https://zhaoyang.me/img/15925414515314.jpg","https://zhaoyang.me/img/15925375003834.jpg","https://zhaoyang.me/img/15925470745937.jpg"],
+        "author": {
+            "@type": "Person",
+            "description": "0x2B|~0x2B",
+            "email": "young.icetea@gmail.com",
+            "image": "https://zhaoyang.me/icons/apple-touch-icon.png",
+            "url": "https://zhaoyang.me/",
+            "name": "赵洋"
+        },
+        "license": "[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Understanding Architecture",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://zhaoyang.me/icons/apple-touch-icon.png"
+            },
+            "url": "https://zhaoyang.me/"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebSite",
+            "@id": "https://zhaoyang.me/"
+        }
+    }
+</script>
+
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+
+
+<meta name="twitter:site" content="@unclezhao" />
+<meta name="twitter:creator" content="@unclezhao" />
+
+    
+
+
+
+<meta property="og:title" content="读源码学架构系列：SPI之JDK实现" />
+<meta property="og:description" content="TL;DR 开篇提到了good design，那如何评价一个设计是不是好的设计呢？其中很重要的一……
+    
+    " />
+<meta property="og:url" content="https://zhaoyang.me/posts/architecture-from-source-code-jdk-spi/" />
+<meta property="og:site_name" content="Understanding Architecture" />
+<meta property="og:locale" content="zh" /><meta property="og:image" content="https://zhaoyang.me/img/15925485964882.jpg" />
+<meta property="og:type" content="article" />
+    <meta property="article:published_time" content="2020-06-17T11:48:53&#43;08:00" />
+    <meta property="article:modified_time" content="2020-07-03T14:46:53&#43;08:00" />
+    
+    <meta property="article:section" content="posts" />
+
+
+        <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+
+        
+
+
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-71554994-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-71554994-1');
+    </script>
+
+
+
+
+    
+
+    
+    
+</head>
+
+    <body>
+        <div class="container">
+            
+    <header class="header" data-scroll-header>
+        
+            <div class="header-wrapper">
+                <div class="header-inner single">
+                    
+    <div class="site-brand">
+        
+            <a href="/" class="brand">Understanding Architecture</a>
+        
+    </div>
+
+                    <nav class="nav">
+    <ul class="menu" id="menu">
+        
+            
+        
+        
+        
+        
+            
+                <li class="menu-item"><a href="/posts/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon archive"><path d="M32 448c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V160H32v288zm160-212c0-6.6 5.4-12 12-12h104c6.6 0 12 5.4 12 12v8c0 6.6-5.4 12-12 12H204c-6.6 0-12-5.4-12-12v-8zM480 32H32C14.3 32 0 46.3 0 64v48c0 8.8 7.2 16 16 16h480c8.8 0 16-7.2 16-16V64c0-17.7-14.3-32-32-32z"/></svg><span class="menu-item-name">Posts</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/categories/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon th"><path d="M149.333 56v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V56c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zm181.334 240v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm32-240v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24zm-32 80V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.256 0 24.001-10.745 24.001-24zm-205.334 56H24c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zm386.667-56H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm0 160H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H386.667c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zM181.333 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24z"/></svg><span class="menu-item-name">Categories</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/tags/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="icon tags"><path d="M497.941 225.941L286.059 14.059A48 48 0 0 0 252.118 0H48C21.49 0 0 21.49 0 48v204.118a48 48 0 0 0 14.059 33.941l211.882 211.882c18.744 18.745 49.136 18.746 67.882 0l204.118-204.118c18.745-18.745 18.745-49.137 0-67.882zM112 160c-26.51 0-48-21.49-48-48s21.49-48 48-48 48 21.49 48 48-21.49 48-48 48zm513.941 133.823L421.823 497.941c-18.745 18.745-49.137 18.745-67.882 0l-.36-.36L527.64 323.522c16.999-16.999 26.36-39.6 26.36-63.64s-9.362-46.641-26.36-63.64L331.397 0h48.721a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882z"/></svg><span class="menu-item-name">Tags</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href="/about/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" class="icon user-circle"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96c48.6 0 88 39.4 88 88s-39.4 88-88 88-88-39.4-88-88 39.4-88 88-88zm0 344c-58.7 0-111.3-26.6-146.5-68.2 18.8-35.4 55.6-59.8 98.5-59.8 2.4 0 4.8.4 7.1 1.1 13 4.2 26.6 6.9 40.9 6.9 14.3 0 28-2.7 40.9-6.9 2.3-.7 4.7-1.1 7.1-1.1 42.9 0 79.7 24.4 98.5 59.8C359.3 421.4 306.7 448 248 448z"/></svg><span class="menu-item-name">About</span></a>
+                </li>
+            
+        
+            
+                <li class="menu-item"><a href=""></a>
+                </li>
+            
+        
+            
+                
+            
+        
+    </ul>
+</nav>
+
+                    
+                </div>
+            </div>
+            
+    <input type="checkbox" id="nav-toggle" aria-hidden="true" />
+    <label for="nav-toggle" class="nav-toggle"></label>
+    <label for="nav-toggle" class="nav-curtain"></label>
+
+
+        
+    </header>
+
+
+
+
+            
+            
+    <main class="main single" id="main">
+    <div class="main-inner">
+
+        
+
+        <article class="content post" data-align="justify" data-type="posts" data-toc-num="true">
+
+            <h1 class="post-title">读源码学架构系列：SPI之JDK实现</h1>
+
+            
+
+            
+                
+            
+
+            
+                
+
+<div class="post-meta">
+    
+        
+        <time datetime="2020-06-17T11:48:53&#43;08:00" class="post-meta-item published"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon post-meta-icon"><path d="M148 288h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm108-12v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 96v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm-96 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm192 0v-40c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12zm96-260v352c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48zm-48 346V160H48v298c0 3.3 2.7 6 6 6h340c3.3 0 6-2.7 6-6z"/></svg>&nbsp;2020.6.17</time>
+    
+    
+    
+    
+        
+        
+        
+            
+                <span class="post-meta-item category"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon post-meta-icon"><path d="M464 128H272l-54.63-54.63c-6-6-14.14-9.37-22.63-9.37H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48zm0 272H48V112h140.12l54.63 54.63c6 6 14.14 9.37 22.63 9.37H464v224z"/></svg>&nbsp;<a href="/categories/architecture/" class="category-link">architecture</a>/<a href="/categories/spi/" class="category-link">SPI</a></span>
+            
+        
+    
+    
+    
+    
+    
+</div>
+
+            
+
+            <div class="post-body">
+              <p>TL;DR</p>
+<p>开篇提到了<strong>good design</strong>，那如何评价一个设计是不是好的设计呢？其中很重要的一点就是：<strong>具有良好的扩展性</strong>。</p>
+<p>如何让自己的设计具有良好的扩展性呢？首先想到的就是插件机制了。没错，就是插件机制，像<code>Eclipse</code>、<code>IntelliJ IDEA</code>这些开发软件都支持大量的插件。</p>
+<p><code>Java</code>本身提供了一种叫<code>SPI</code>（<code>Service Provider Interface</code>）的插件机制，在<code>JDK</code>中大量使用，如<code>JDBC</code>、<code>JNDI</code>等。</p>
+<p>像<code>Spring</code>、<code>Dubbo</code>这些开源框架也是基于<code>SPI</code>机制实现可扩展性，只不过，<code>Spring</code>和<code>Dubbo</code>框架自身的<code>SPI</code>分别在<code>JDK</code>的<code>SPI</code>基础上进行了扩展，这些后续在对这两个框架的源码分析中会进行比较，这篇先分析<code>JDK</code>提供的<code>SPI</code>机制。</p>
+<p>本篇内容大纲如下：</p>
+<ol>
+<li>什么是<strong>SPI</strong></li>
+<li><strong>SPI</strong>解决了什么问题</li>
+<li><strong>JDK</strong>源码中如何使用<strong>SPI</strong></li>
+<li>基于<strong>SPI</strong>机制的实现示例</li>
+<li><strong>JDK</strong>的<strong>SPI</strong>有什么限制吗</li>
+</ol>
+<p>首先我们需要了解下什么是<code>SPI</code>。</p>
+<h4 id="0x01-什么是spi"><a href="#0x01-什么是spi" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x01 什么是SPI？</h4>
+<p>维基百科对<code>SPI</code>的定义是：</p>
+<blockquote>
+<p>Service Provider Interface (SPI) is an API intended to be implemented or extended by a third party. It can be used to enable framework extension and replaceable components.</p>
+</blockquote>
+<p>简单的说<code>SPI</code>是提供给第三方用以实现或扩展的<code>API</code>，它可以被用于框架暴露出扩展点实现组件的替换。</p>
+<p><code>SPI</code>的定义中有<code>Service</code>、<code>Provider</code>、<code>Interface</code>三个名词，那什么是<code>Service</code>，什么是<code>Provider</code>，接口的用途是什么呢？</p>
+<ul>
+<li><code>Service</code>（服务）：是指一组众所周知的接口或类（通常是抽象类）；</li>
+<li><code>Service Provider</code>（服务提供者）：是指<code>Service</code>的一个特定实现，服务提供者通常会实现服务接口（或继承服务抽象类）；</li>
+</ul>
+<p>其实，除了服务和服务提供者，还有一个角色就是服务加载器（<code>Service Loader</code>），它是专门负责加载某一类插件的，这个后面会介绍。</p>
+<p>服务提供者可以打成<code>jar</code>包之后放到<code>Java</code>平台的扩展目录下来进行安装，也可以放置到程序的<code>classpath</code>下或其它一些特定于平台的方式来让服务提供者变得可用。（我们通常是通过<code>classpath</code>的方式来使用）</p>
+<p>出于加载的目的，一个服务通常为一个接口或一个抽象类（非抽象类也可以使用，但不推荐）。一个服务提供者可以是一个或多个类，这些类之间相互协作来实现服务接口，以提供服务的能力。不同的服务提供者的具体实现细节不同，通常不同的服务提供者会提供差异化的服务。</p>
+<p>服务提供者的唯一要求就是<strong>必须要有无参构造函数</strong>，这样才能在加载时被正常的实例化。</p>
+<p>既然可以有不同服务提供者，那系统如何识别多个不同的服务提供者呢？</p>
+<p>服务提供者是通过放置在资源目录<code>META-INF/services</code>下的一个提供者配置文件来标识的。这个<strong>配置文件的名称是服务接口的全路径名称</strong>（即：包名+类名），<strong>配置文件的内容是服务提供者的全路径名称的列表</strong>，每行一个，其中空格、制表符和空行都会被忽略，注释的符号为<code>#</code>，注释符号后面的所有内容都会被忽略；最后，文件的编码必须是<strong>UTF-8</strong>格式。</p>
+<p>如果一个服务提供者在多个配置文件中配置，或是在同一个配置文件中配置了多次，重复的项会被忽略。</p>
+<p>另外，服务提供者的配置文件和二进制文件可以不在同一个<code>jar</code>包中，只需要保证配置文件和二进制文件可以被同一个类加载器（<code>Class Loader</code>）加载即可。</p>
+<p>服务加载器（<code>Service Loader</code>）使用延迟加载的方式加载服务提供者，换句话说，只有在真正使用到某个具体的服务提供者时，该服务提供者才会被实例化。并且，实例化后的服务提供者实例会被缓存，服务加载器提供了<code>reload()</code>方法来清除缓存。</p>
+<h4 id="0x02-spi解决了什么问题"><a href="#0x02-spi解决了什么问题" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x02 SPI解决了什么问题</h4>
+<p>上面对服务（<code>Service</code>）、服务提供者（<code>Service Provider</code>）和服务加载器（<code>Service Loader</code>）进行了介绍，我们知道服务提供者是真正的服务实现者，而且服务加载器可以加载各种实现了同一服务的不同的服务提供者。</p>
+<p>为什么要支持对一个服务支持不同的服务提供者呢？从面向对象设计原则的角度来看，它是符合了开闭原则（<code>OCP</code>）的，框架的处理逻辑只依赖于一个抽象（<code>SPI</code>这里可以是接口或抽象类），具体的实现变成了一种可拔插的方式，系统变得更松散，当系统需要支持某种服务的另一种实现时，不用修改系统本身，增加一种具体实现（服务提供者）即可，增强了系统的可扩展性。</p>
+<p>再看维基百科上对<code>SPI</code>的定义中有一句话：被用于框架暴露出扩展点实现组件的替换。</p>
+<p>也就是说，<code>SPI</code>一般用于把框架的扩展点暴露给开发者，让开发者可以实现组件的替换。但实际上并不只是局限于替换，也可以是扩展服务能力，具体取决于框架的逻辑实现，这个后面举例说明。</p>
+<p>无论是替换还是扩展，其实本质上就是让我们的系统更加的向面向对象的设计目标靠拢：高内聚，低耦合。通过满足开闭原则，提供框架本身的可扩展性，这就是<code>SPI</code>本身想解决的问题。</p>
+<p><img src="/img/15925485964882.jpg" alt=""></p>
+<p>上图是服务、服务提供者、服务加载器之间的关系图。</p>
+<h4 id="0x03-jdk中如何使用spi"><a href="#0x03-jdk中如何使用spi" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x03 JDK中如何使用SPI</h4>
+<p><code>JDK</code>在很多地方都使用了<code>SPI</code>机制来提升扩展能力，维基百科中列举的有下面这些：</p>
+<ul>
+<li>Java Database Connectivity</li>
+<li>Java Cryptography Extension</li>
+<li>Java Naming and Directory Interface</li>
+<li>Java API for XML Processing</li>
+<li>Java Business Integration</li>
+<li>Java Sound</li>
+<li>Java Image I/O</li>
+<li>Java File Systems</li>
+</ul>
+<p>对我们而言，接触最多的当属第一个，也就是<code>JDBC</code>了，我们就看一下<code>JDBC</code>是如何使用<code>SPI</code>的吧。</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#75715e">/**
+</span><span style="color:#75715e"> * @author zhaoyang
+</span><span style="color:#75715e"> */</span>
+<span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TestJdbcSpi</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> Connection conn<span style="color:#f92672">;</span>
+
+    <span style="color:#a6e22e">@Before</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setUp</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            Class<span style="color:#f92672">.</span><span style="color:#a6e22e">forName</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;org.hsqldb.jdbcDriver&#34;</span><span style="color:#f92672">);</span>
+            conn <span style="color:#f92672">=</span> DriverManager<span style="color:#f92672">.</span><span style="color:#a6e22e">getConnection</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;jdbc:hsqldb:mem:test&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;sa&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">);</span>
+            ScriptRunner sr <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ScriptRunner<span style="color:#f92672">(</span>conn<span style="color:#f92672">);</span>
+            sr<span style="color:#f92672">.</span><span style="color:#a6e22e">setLogWriter</span><span style="color:#f92672">(</span><span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+            sr<span style="color:#f92672">.</span><span style="color:#a6e22e">runScript</span><span style="color:#f92672">(</span>Resources<span style="color:#f92672">.</span><span style="color:#a6e22e">getResourceAsReader</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;create-schema.sql&#34;</span><span style="color:#f92672">));</span>
+            sr<span style="color:#f92672">.</span><span style="color:#a6e22e">runScript</span><span style="color:#f92672">(</span>Resources<span style="color:#f92672">.</span><span style="color:#a6e22e">getResourceAsReader</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;init-data.sql&#34;</span><span style="color:#f92672">));</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testJdbcSpiByHsqldb</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        SqlRunner sr <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SqlRunner<span style="color:#f92672">(</span>conn<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            List<span style="color:#f92672">&lt;</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;&gt;</span> results <span style="color:#f92672">=</span> sr<span style="color:#f92672">.</span><span style="color:#a6e22e">selectAll</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;select * from user&#34;</span><span style="color:#f92672">);</span>
+            assertTrue<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;user data not found&#34;</span><span style="color:#f92672">,</span> results<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;</span> 0<span style="color:#f92672">);</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                conn<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+            <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>SQLException e<span style="color:#f92672">)</span> <span style="color:#f92672">{}</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>上图是使用<code>HSQLDB</code>进行测试的例子。</p>
+<p>我们来分析一下这里哪里用到了<code>SPI</code>。</p>
+<p><code>@Before</code>标的方法是<code>junit</code>运行测试方法的前置方法，它会在每个<code>@Test</code>测试运行之前运行一次，我们这里只有一个<code>@Test</code>方法，并且，<code>HSQLDB</code>是内存数据库，所以这么写没有关系。</p>
+<p>在<code>setUp</code>方法中我们首先调用了<code>Class.forName(&quot;org.hsqldb.jdbcDriver&quot;)</code>这一行代码，它的作用是将指定的类加载进来（加载的是<code>Class</code>），这个过程会强制<code>ClassLoader</code>加载<code>Class</code>，同时会执行<code>static</code>代码块；其实，把这一行注释掉，代码也是可以正常运行的（前提是在<code>JVM</code>的<code>classpath</code>下能加载到<code>org.hsqldb.jdbcDriver</code>这个类，以及它所依赖的其它类），原因等下再说。</p>
+<p>接下来，通过<code>DriverManager.getConnection(&quot;jdbc:hsqldb:mem:test&quot;, &quot;sa&quot;, &quot;&quot;)</code>就能获取到<code>Connection</code>对象了，它怎么知道我要哪个对象呢？这里就用到了<code>SPI</code>机制，查看<code>DriverManager</code>的源码，我们可以看到在它的类中有一个静态代码块：</p>
+<p><img src="/img/15925358417076.jpg" alt=""></p>
+<p>这个代码块在<code>DriverManager</code>类加载的时候就会被调用，里面有一个<code>loadInitialDrivers()</code>方法：</p>
+<p><img src="/img/15925360292126.jpg" alt=""></p>
+<p>其中关键的一行是：<code>ServiceLoader&lt;Driver&gt; loadedDrivers = ServiceLoader.load(Driver.class);</code>。</p>
+<p>这里调用了服务加载器来查找所有<code>Driver.class</code>的服务提供者，这个<code>Driver.class</code>是<code>java.sql.Driver</code>，是一个接口，定义了服务要实现的方法。</p>
+<p>服务加载器会把所有查找到的服务提供者全部加载进来（上图中的<code>while</code>循环）。</p>
+<p>这里特别注意一下：<code>loadedDrivers.iterator()</code>，跟进去<code>ServiceLoader</code>类，你会发现，这里返回的<code>Iterator</code>对象是<code>ServiceLoader</code>的一个内部匿名实现：</p>
+<p><img src="/img/15925400732852.jpg" alt=""></p>
+<p>在随后的<code>while</code>循环时，里面调用的<code>driversIterator.next();</code>实际就是调用的上面图片中的<code>next()</code>方法，这个<code>next()</code>方法的实现，它在交替的通过延迟加载的方式来处理服务提供者。本质上<code>next()</code>方法都会触发到<code>LazyIterator#nextService()</code>方法：</p>
+<p><img src="/img/15925405806674.jpg" alt=""></p>
+<p>而这个方法中，有一行代码是在调用：<code>Class.forName(cn, false, loader);</code>，这不就是我们前面测试代码中给注释掉的那行代码吗？原来，<code>ServiceLoader</code>在加载<code>Provider</code>时，默认会去把对应的服务的<code>Class</code>加载进来，这个过程会触发对应的<code>Class</code>的静态代码块，为什么要强调触发静态代码块呢？我们后面再分析。</p>
+<p>当我们的测试用例在启动的时候，在调用<code>DriverManager</code>类的方法之前，<code>DriverManager</code>会先去<code>classpath</code>下搜索所有<code>java.sql.Driver</code>的服务提供者，这里会扫描<code>classpath</code>下的<code>jar</code>包，搜索服务配置文件，这个配置文件的路径是在资源目录<code>META-INF/services</code>下，文件名称在这里应该是<code>java.sql.Driver</code>，我们查看项目工程的依赖路径下，因为我们使用的是<code>HSQLDB</code>，所以在项目依赖中，我们会添加<code>hsqldb-xxx.jar</code>的依赖（这里的<code>xxx</code>是版本号）。</p>
+<p>我们点开<code>hsqldb-xxx.jar</code>，我们可以看到：</p>
+<p><img src="/img/15925363833175.jpg" alt=""></p>
+<p>这个<code>jar</code>包下面，确实有对应的路径和文件，打开文件，可以看到里面的内容是：</p>
+<p><img src="/img/15925364204669.jpg" alt=""></p>
+<p>按照前面的约定，这个文件的内容就是全路径的服务提供者名称，我们就可以打开这个类来看一下就会发现，<code>org.hsqldb.jdbcDriver</code>实现了<code>java.sql.Driver</code>类。</p>
+<p>到这里为止，感觉确实是通过<code>SPI</code>的方式加载了<code>HSQLDB</code>的驱动，如果我的<code>classpath</code>下有多个厂商提供的驱动会怎样呢？</p>
+<p>我们在<code>classpath</code>下加上<code>h2</code>内存数据库的依赖：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java">    <span style="color:#f92672">&lt;</span>dependency<span style="color:#f92672">&gt;</span>
+        <span style="color:#f92672">&lt;</span>groupId<span style="color:#f92672">&gt;</span>com<span style="color:#f92672">.</span><span style="color:#a6e22e">h2database</span><span style="color:#f92672">&lt;/</span>groupId<span style="color:#f92672">&gt;</span>
+        <span style="color:#f92672">&lt;</span>artifactId<span style="color:#f92672">&gt;</span>h2<span style="color:#f92672">&lt;/</span>artifactId<span style="color:#f92672">&gt;</span>
+        <span style="color:#f92672">&lt;</span>version<span style="color:#f92672">&gt;</span>1<span style="color:#f92672">.</span><span style="color:#a6e22e">4</span><span style="color:#f92672">.</span><span style="color:#a6e22e">200</span><span style="color:#f92672">&lt;/</span>version<span style="color:#f92672">&gt;</span>
+        <span style="color:#f92672">&lt;</span>scope<span style="color:#f92672">&gt;</span>test<span style="color:#f92672">&lt;/</span>scope<span style="color:#f92672">&gt;</span>
+    <span style="color:#f92672">&lt;/</span>dependency<span style="color:#f92672">&gt;</span>
+</code></pre></div><p>然后同样在项目的依赖下找到<code>h2-xxx.jar</code>的<code>jar</code>包，点开，可以看到：</p>
+<p>`<img src="/img/15925371593865.jpg" alt=""></p>
+<p>完全符合<code>JDBC</code>对第三方扩展的规范，这里<code>java.sql.Driver</code>文件的内容为：</p>
+<p><img src="/img/15925372106896.jpg" alt=""></p>
+<p>打开这个类文件，可以发现<code>org.h2.Driver</code>也同样实现了<code>java.sql.Driver</code>接口。</p>
+<p>到现在为止，我们清楚<code>Service</code>、<code>Service Provider</code>和<code>ServiceLoader</code>三者的关系，但我们还是不清楚，一个第三方的<code>java.sql.Driver</code>实现具体是怎么被<code>DriverManager</code>发现的，现在还只有<code>ServiceLoader</code>知道了这些第三方实现的存在。</p>
+<p>我们再看一下<code>DriverManager#getConnection()</code>方法（参数去掉了），这里面有一段循环处理已注册的驱动的代码：</p>
+<p><img src="/img/15925408646269.jpg" alt=""></p>
+<p>原来<code>DriverManager</code>循环查找已经向自己注册过的<code>Driver</code>类，那第三方的驱动是什么时候，又是如何向<code>DrvierManager</code>注册的呢？我们清楚了这一些，整个流程才全部串联起来了。</p>
+<p>前面一直在强调<code>Class#forName()</code>方法会触发对应类的静态代码块，那就可以猜测一下，是不是第三方的实现在实现类中有一段静态代码块专门来向<code>DrvierManager</code>注册自己，这样在<code>ServiceLoader</code>加载到自己时，通过<code>Class#forName()</code>方法就可以触发自己的注册流程了（这就是为什么前面的测试用例，注释了<code>Class#forName()</code>那行代码，测试用例也能正常运行的原因，这是<code>JDBC 4.0</code>新增的功能）。</p>
+<p>于是，我们去查看前面的两个驱动类：</p>
+<p>在<code>org.hsqldb.jdbc.JDBCDriver</code>类中有这样一段静态代码块：</p>
+<p><img src="/img/15925411586770.jpg" alt=""></p>
+<p>同样，在<code>org.h2.Driver</code>类中有这样一代静态代码块：</p>
+<p><img src="/img/15925412104743.jpg" alt=""></p>
+<p>对应的<code>load()</code>方法：</p>
+<p><img src="/img/15925412260019.jpg" alt=""></p>
+<p>果然是这样啊，第三方的实现在自己的服务提供者实现类中，增加一个静态代码块，这个代码块中通过调用<code>DriverManager#registerDriver()</code>方法来把自己的实例注册给<code>DriverManager</code>。</p>
+<p>这两个都是内存数据库，我想知道我们常用的<code>MySQL</code>是不是也是这样，于是，把<code>MySQL</code>的<code>JDBC</code>驱动添加到项目的依赖中，然后去找到资源配置文件里面的类，打开：</p>
+<p><img src="/img/15925414515314.jpg" alt=""></p>
+<p>结果既不惊喜也不意外，非常直接。</p>
+<p>至此，我们已经研究了<code>java.sql.Driver</code>的多个扩展实现了，你再看<code>MySQL</code>、<code>Oracle</code>等数据库的驱动<code>jar</code>包，也会发现它们也都符合<code>JDBC</code>对第三方的扩展规范。</p>
+<p>现在，我们的<code>classpath</code>上有了<code>java.sql.Driver</code>的多个服务提供者，那会不会出问题呢？</p>
+<p>按照前面定义里讲的话是不会出问题的，因为只有你的代码使用到某一个具体的服务提供者的时候，它才会去加载它，同时存在多个是不会影响的。</p>
+<p>我们试一下：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TestJdbcSpi</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> Connection conn<span style="color:#f92672">;</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testJdbcSpiByHsqldb</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            Class<span style="color:#f92672">.</span><span style="color:#a6e22e">forName</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;org.hsqldb.jdbc.JDBCDriver&#34;</span><span style="color:#f92672">);</span>
+            conn <span style="color:#f92672">=</span> DriverManager<span style="color:#f92672">.</span><span style="color:#a6e22e">getConnection</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;jdbc:hsqldb:mem:test&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;sa&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">);</span>
+            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>conn<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                conn<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+            <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>SQLException e<span style="color:#f92672">)</span> <span style="color:#f92672">{}</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Test</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">testJdbcSpiByH2</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+            Class<span style="color:#f92672">.</span><span style="color:#a6e22e">forName</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;org.h2.Driver&#34;</span><span style="color:#f92672">);</span>
+            conn <span style="color:#f92672">=</span> DriverManager<span style="color:#f92672">.</span><span style="color:#a6e22e">getConnection</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;jdbc:h2:mem:test&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;sa&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">);</span>
+            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>conn<span style="color:#f92672">.</span><span style="color:#a6e22e">getClass</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">());</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+                conn<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+            <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>SQLException e<span style="color:#f92672">)</span> <span style="color:#f92672">{}</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>执行整个测试类，两个测试方法被执行，分别输出如下：</p>
+<p><img src="/img/15925375003834.jpg" alt=""></p>
+<p>两个测试方法各自正确的加载了各自需要的驱动，并打印出了各自获取到的连接对象的类名。</p>
+<p>到这里，<code>JDK</code>源码中使用<code>SPI</code>的分析就结束了。</p>
+<p>通过上面的实践，我们可以知道，对于一个<code>Service</code>，我们可以实现很多不同的<code>Service Provier</code>，这些不同的<code>Provider</code>是可以共存在同一个<code>classpath</code>下的，而且，我们要扩展一种新的<code>Service Provider</code>能力时，不用去修改原来的代码，只需要按照约定的规范去做一个新的<code>Provider</code>即可，最后把它放到程序能加载到的地方（通常是程序的<code>classpath</code>，但并不只有这一个位置可以放，具体有哪些路径和<code>jvm</code>的加载机制有关），这样我们的程序的可扩展性就大大的增强了。</p>
+<h4 id="0x04-基于spi机制的实现示例"><a href="#0x04-基于spi机制的实现示例" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x04 基于<strong>SPI</strong>机制的实现示例</h4>
+<p>现在我们清楚了整个<code>SPI</code>运行的流程，以及各个不同的角色的职责分工，下面应该动手实践了。</p>
+<p>首先，定义一个服务接口：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Dictionary</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Get the definition of the input word.
+</span><span style="color:#75715e">     * @param word the query word
+</span><span style="color:#75715e">     * @return the definition of the word
+</span><span style="color:#75715e">     */</span>
+    String <span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>String word<span style="color:#f92672">);</span>
+
+<span style="color:#f92672">}</span>
+</code></pre></div><p>然后定义两个不同的服务提供者：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ExtendedDictionary</span> <span style="color:#66d9ef">implements</span> Dictionary <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> SortedMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> String<span style="color:#f92672">&gt;</span> map<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ExtendedDictionary</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;ExtendedDictionary loaded&#34;</span><span style="color:#f92672">);</span>
+        map <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">&lt;&gt;();</span>
+        map<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;xml&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;a document standard often used in web services, among other things&#34;</span><span style="color:#f92672">);</span>
+        map<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;REST&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;an architecture style for creating, reading, updating, &#34;</span> <span style="color:#f92672">+</span>
+            <span style="color:#e6db74">&#34;and deleting data that attempts to use the common &#34;</span> <span style="color:#f92672">+</span>
+            <span style="color:#e6db74">&#34;vocabulary of the HTTP protocol; Representational State &#34;</span> <span style="color:#f92672">+</span>
+            <span style="color:#e6db74">&#34;Transfer&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>String word<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> map<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>word<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GeneralDictionary</span> <span style="color:#66d9ef">implements</span> Dictionary <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> SortedMap<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> String<span style="color:#f92672">&gt;</span> map<span style="color:#f92672">;</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">GeneralDictionary</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;GeneralDictionary loaded&#34;</span><span style="color:#f92672">);</span>
+        map <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">&lt;&gt;();</span>
+        map<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;book&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;a set of written or printed pages, usually bound with &#34;</span> <span style="color:#f92672">+</span>
+                <span style="color:#e6db74">&#34;a protective cover&#34;</span><span style="color:#f92672">);</span>
+        map<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;editor&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;a person who edits&#34;</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#a6e22e">@Override</span>
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>String word<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> map<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>word<span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>服务提供者的构造函数有一行代码会打印一行信息，这个信息会在服务提供者被实例化时输出，加上这一行代码的目的是想验证服务提供者被加载的次数。</p>
+<p>然后实现服务的调用方：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DictionaryService</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#66d9ef">private</span> ServiceLoader<span style="color:#f92672">&lt;</span>Dictionary<span style="color:#f92672">&gt;</span> serviceLoader<span style="color:#f92672">;</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Not allowed create DictionaryService instances from other place.
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#a6e22e">DictionaryService</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#75715e">// load all Dictionaries when initialized DictionaryService.
+</span><span style="color:#75715e"></span>        loadServices<span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> DictionaryService <span style="color:#a6e22e">getInstance</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">return</span> LazyHolder<span style="color:#f92672">.</span><span style="color:#a6e22e">SERVICE</span><span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Singleton instance holder
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LazyHolder</span> <span style="color:#f92672">{</span>
+        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> DictionaryService SERVICE <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DictionaryService<span style="color:#f92672">();</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * ServiceLoader load all Dictionary.class implements
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">loadServices</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+        serviceLoader <span style="color:#f92672">=</span> ServiceLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">load</span><span style="color:#f92672">(</span>Dictionary<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Find definition from all loaded dictionaries.
+</span><span style="color:#75715e">     * If found, return the first matched definition,
+</span><span style="color:#75715e">     * otherwise, return null.
+</span><span style="color:#75715e">     *
+</span><span style="color:#75715e">     * @param word the query word.
+</span><span style="color:#75715e">     * @return The first result find from all Dictionaries.
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>String word<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        String definition <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+
+        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+<span style="color:#75715e">//            serviceLoader.reload();
+</span><span style="color:#75715e"></span>            Iterator<span style="color:#f92672">&lt;</span>Dictionary<span style="color:#f92672">&gt;</span> dictionaries <span style="color:#f92672">=</span> serviceLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">iterator</span><span style="color:#f92672">();</span>
+            <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>definition <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> dictionaries<span style="color:#f92672">.</span><span style="color:#a6e22e">hasNext</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+                Dictionary d <span style="color:#f92672">=</span> dictionaries<span style="color:#f92672">.</span><span style="color:#a6e22e">next</span><span style="color:#f92672">();</span>
+                definition <span style="color:#f92672">=</span> d<span style="color:#f92672">.</span><span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>word<span style="color:#f92672">);</span>
+            <span style="color:#f92672">}</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>ServiceConfigurationError error<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            definition <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+            error<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
+        <span style="color:#f92672">}</span>
+        <span style="color:#66d9ef">return</span> definition<span style="color:#f92672">;</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>这里的服务调用方使用了单例模式，确保系统只创建一个实例。这里定义了一个<code>getDefinition</code>方法，这是真正被系统使用的方法，本质上，这里是定义的服务<code>Dictionary</code>被如何使用的逻辑。</p>
+<p>从上面的代码我们可以看到，对于输入的<code>word</code>，我们会对服务加载器所加载到的所有的服务提供者都会去调用它们所实现的<code>getDefinition</code>方法。这与<code>java.sql.Driver</code>的服务使用逻辑不太一样，<code>java.sql.Driver</code>是替换的思想，而我们这里是组合的思想，对于输入的<code>word</code>，如果没有查到对应的定义，只要还有服务提供者就会继续遍历下去，直到遍历完所有的服务提供者为止。</p>
+<p>注释掉的那行：<code>serviceLoader.reload()</code>是用来验证<code>ServiceLoader</code>的缓存的。</p>
+<p>然后就是测试代码了：</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-java" data-lang="java"><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DictionaryApp</span> <span style="color:#f92672">{</span>
+
+    <span style="color:#75715e">/**
+</span><span style="color:#75715e">     * Using &lt;code&gt;DictionaryService&lt;/code&gt; to look up the word definition.
+</span><span style="color:#75715e">     * @param dictService concrete look up service
+</span><span style="color:#75715e">     * @param word the query word
+</span><span style="color:#75715e">     * @return the definition of the word
+</span><span style="color:#75715e">     */</span>
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> String <span style="color:#a6e22e">lookup</span><span style="color:#f92672">(</span>DictionaryService dictService<span style="color:#f92672">,</span> String word<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        String output <span style="color:#f92672">=</span> word <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;: &#34;</span><span style="color:#f92672">;</span>
+        String definition <span style="color:#f92672">=</span> dictService<span style="color:#f92672">.</span><span style="color:#a6e22e">getDefinition</span><span style="color:#f92672">(</span>word<span style="color:#f92672">);</span>
+        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>definition <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> output <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;Cannot find definition for this word.&#34;</span><span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+            <span style="color:#66d9ef">return</span> output <span style="color:#f92672">+</span> definition<span style="color:#f92672">;</span>
+        <span style="color:#f92672">}</span>
+    <span style="color:#f92672">}</span>
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+        DictionaryService dictService <span style="color:#f92672">=</span> DictionaryService<span style="color:#f92672">.</span><span style="color:#a6e22e">getInstance</span><span style="color:#f92672">();</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;book&#34;</span><span style="color:#f92672">));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;editor&#34;</span><span style="color:#f92672">));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;xml&#34;</span><span style="color:#f92672">));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;REST&#34;</span><span style="color:#f92672">));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;not-exist&#34;</span><span style="color:#f92672">));</span>
+        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>lookup<span style="color:#f92672">(</span>dictService<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;book&#34;</span><span style="color:#f92672">));</span>
+    <span style="color:#f92672">}</span>
+<span style="color:#f92672">}</span>
+</code></pre></div><p>在<code>DictionaryApp</code>的<code>main()</code>方法中，调用了两次<code>lookup(dictService, &quot;book&quot;)</code>，目的是为了验证服务加载器会对每个特定的服务加载几次。</p>
+<p>运行程序，得到输出：</p>
+<p><img src="/img/15925470745937.jpg" alt=""></p>
+<p>可以看到，我们自己的实现和我们的预期一样执行。</p>
+<p>另外，这里的示例，服务的定义、服务的两种不同实现，以及服务的调用分别是放在不同的工程下的，具体参考文末的示例代码链接的仓库代码。（本地运行需要先在项目根目录下执行<code>mvn install</code>，将包安装到本地仓库，否则可能会提示找不到<code>jar</code>包）</p>
+<h4 id="0x05-jdk的spi有什么限制吗"><a href="#0x05-jdk的spi有什么限制吗" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x05 <strong>JDK</strong>的<strong>SPI</strong>有什么限制吗</h4>
+<p>到这里，关于<code>JDK</code>的<code>SPI</code>就全部讲完了，那这个<code>SPI</code>完美吗？有没有什么局限性呢？</p>
+<p><code>JDK</code>提供的<code>ServiceLoader</code> <code>API</code>很有用，但也有其局限性。</p>
+<p>比如：</p>
+<ul>
+<li><code>ServiceLoader</code>是一个<code>final</code>类，不能被扩展，也就是说，我们没有办法去改变服务加载器的加载行为；</li>
+<li>当前的<code>ServiceLoader</code>没办法在运行时加载新的服务提供者；</li>
+<li>我们也没有办法对<code>ServiceLoader</code>增加<code>Listener</code>来监听一些感兴趣的变化事件等；</li>
+</ul>
+<h4 id="0x06-总结"><a href="#0x06-总结" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>0x06 总结</h4>
+<p>到这里，我们把<code>JDK</code>的<code>SPI</code>机制完整的分析了一遍，并通过一个示例实践动手验证了它的一些约定等。</p>
+<p>我们也清楚了<code>SPI</code>的目的是什么，有什么用处，如何使用等，未来，我们可以轻松的把这种扩展机制应用到我们的代码中，让我们代码的扩展能力更强。</p>
+<p>同时，我们也知道<code>JDK</code>的<code>SPI</code>也有一些局限性，所以后面的<code>Spring</code>和<code>Dubbo</code>框架都在这个基础之上对<code>SPI</code>进行了增强，接下来会分析<code>Spring</code>中的<code>SPI</code>，然后再分析<code>Dubbo</code>的<code>SPI</code>，我个人觉得<code>Dubbo</code>的<code>SPI</code>是这三者中最美的。</p>
+<p>好了，这一篇的内容到此就结束了，欢迎各种反馈和交流！</p>
+<h5 id="references"><a href="#references" class="anchor-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon anchor-icon"><path d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z"/></svg></a>References</h5>
+<ol>
+<li><em><a href="https://en.wikipedia.org/wiki/Service_provider_interface" target="_blank" rel="noopener">Service Provider Interface</a></em></li>
+<li><em><a href="https://docs.oracle.com/javase/tutorial/ext/basics/spi.html" target="_blank" rel="noopener">Creating Extensible Applications</a></em></li>
+<li><em><a href="https://docs.oracle.com/javase/7/docs/api/java/util/ServiceLoader.html" target="_blank" rel="noopener">ServiceLoader API Document</a></em></li>
+<li><em><a href="https://plentymore.github.io/2019/01/04/IDEA%E6%9F%A5%E7%9C%8BJava%E7%9A%84sun%E5%8C%85%E4%B8%8B%E7%9A%84%E6%BA%90%E7%A0%81/" target="_blank" rel="noopener">如何在<code>IDEA</code>中查看<code>JDK</code>中的<code>sun</code>包下的源码</a></em></li>
+<li><em><a href="https://github.com/openjdk-mirror/jdk" target="_blank" rel="noopener"><code>OpenJDK</code>源码镜像</a></em></li>
+<li><em><a href="https://github.com/unclezhao/architecture-std" target="_blank" rel="noopener">示例代码仓库</a></em></li>
+</ol>
+
+            </div>
+
+        </article>
+
+        
+
+        
+    
+    
+        <ul class="post-copyright">
+            <li class="copyright-item author"><span class="copyright-item-text">作者</span>：<a href="https://zhaoyang.me/" target="_blank" rel="noopener">赵洋</a></li>
+            
+                
+                
+                
+                
+                <li class="copyright-item link"><span class="copyright-item-text">链接</span>：<a href="/posts/architecture-from-source-code-jdk-spi/" target="_blank" rel="noopener">https://zhaoyang.me/posts/architecture-from-source-code-jdk-spi/</a></li>
+            
+            <li class="copyright-item license"><span class="copyright-item-text">许可</span>：<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+        
+
+
+        
+
+
+        
+    
+    
+        <div class="related-posts">
+            <h2 class="related-title">相关文章：<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon related-icon"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"/></svg></h2>
+            <ul class="related-list">
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-dubbo-spi/" class="related-link">读源码学架构系列：SPI之Dubbo实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-from-source-code-spring-spi/" class="related-link">读源码学架构系列：SPI之Spring实现</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/architecture-training-pressure-test-toy/" class="related-link">设计一个简单的压力测试工具</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/dubbo-export-refer-analysis/" class="related-link">读源码学架构系列：Dubbo服务暴露与服务消费流程分析</a>
+                    </li>
+                
+                    <li class="related-item">
+                        <a href="/posts/totp-algorithm/" class="related-link">动态密码TOTP</a>
+                    </li>
+                
+            </ul>
+        </div>
+    
+
+
+
+        
+    
+        <div class="post-tags">
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/microkernel/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>MicroKernel</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/spi/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>SPI</a>
+                
+            
+                
+                
+                
+                
+                    
+                    <a href="/tags/architecture/" rel="tag" class="post-tags-link"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon tag-icon"><path d="M0 252.118V48C0 21.49 21.49 0 48 0h204.118a48 48 0 0 1 33.941 14.059l211.882 211.882c18.745 18.745 18.745 49.137 0 67.882L293.823 497.941c-18.745 18.745-49.137 18.745-67.882 0L14.059 286.059A48 48 0 0 1 0 252.118zM112 64c-26.51 0-48 21.49-48 48s21.49 48 48 48 48-21.49 48-48-21.49-48-48-48z"/></svg>architecture</a>
+                
+            
+        </div>
+    
+
+
+
+        
+
+
+        
+
+
+        
+    
+        
+        
+    
+    
+    
+    
+        <ul class="post-nav">
+            
+                <li class="post-nav-prev">
+                    <a href="/posts/architecture-from-source-code-spring-spi/" rel="prev">&lt; 读源码学架构系列：SPI之Spring实现</a>
+                </li>
+            
+            
+                <li class="post-nav-next">
+                    <a href="/posts/architecture-from-source-code-guidelines/" rel="next">读源码学架构系列：开篇 &gt;</a>
+                </li>
+            
+        </ul>
+    
+
+
+
+        
+
+
+    </div>
+</main>
+
+
+            
+    <div id="back-to-top" class="back-to-top">
+        <a href="#"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon arrow-up"><path d="M34.9 289.5l-22.2-22.2c-9.4-9.4-9.4-24.6 0-33.9L207 39c9.4-9.4 24.6-9.4 33.9 0l194.3 194.3c9.4 9.4 9.4 24.6 0 33.9L413 289.4c-9.5 9.5-25 9.3-34.3-.4L264 168.6V456c0 13.3-10.7 24-24 24h-32c-13.3 0-24-10.7-24-24V168.6L69.2 289.1c-9.3 9.8-24.8 10-34.3.4z"/></svg></a>
+    </div>
+
+
+            
+    <footer id="footer" class="footer">
+        <div class="footer-inner">
+            <div class="site-info">©&nbsp;2015–2020&nbsp;<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon footer-icon"><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z"/></svg>&nbsp;赵洋</div><div class="powered-by">Powered by <a href="https://github.com/gohugoio/hugo" target="_blank" rel="noopener">Hugo</a> | Theme is <a href="https://github.com/reuixiy/hugo-theme-meme" target="_blank" rel="noopener">MemE</a></div><div class="site-copyright"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a></div>
+
+            
+
+
+            
+        </div>
+    </footer>
+
+
+        </div>
+        
+    <script src="https://cdn.jsdelivr.net/gh/cferdinandi/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<script>
+    var scroll = new SmoothScroll('a[href*="#"]', {
+        speedAsDuration: true,
+        header: '[data-scroll-header]'
+    });
+</script>
+
+
+
+
+
+
+    <script>
+    if (typeof MathJax === 'undefined') {
+        window.MathJax = {
+            loader: {
+                load: ['[tex]/mhchem']
+            },
+            
+            tex: {
+                inlineMath: {'[+]': [['$', '$']]},
+                tags: 'ams',
+                packages: {'[+]': ['mhchem']}
+            }
+        };
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    } else {
+        MathJax.texReset();
+        MathJax.typeset();
+    }
+</script>
+
+
+
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/medium-zoom@latest/dist/medium-zoom.min.js"></script>
+
+<script>
+    mediumZoom(document.querySelectorAll('div.post-body img'), {
+        background: 'hsla(var(--color-bg-h), var(--color-bg-s), var(--color-bg-l), 0.95)'
+    })
+</script>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/instant.page@3.0.0/instantpage.min.js" type="module" defer></script>
+
+
+
+
+
+
+
+
+
+
+    </body>
+</html>
